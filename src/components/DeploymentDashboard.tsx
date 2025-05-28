@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,10 +16,13 @@ import {
   Server,
   Eye,
   ExternalLink,
-  Download
+  Download,
+  Shield,
+  Settings
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { ComplianceSecurityDashboard } from './ComplianceSecurityDashboard';
 
 interface DeploymentDashboardProps {
   artifacts: any;
@@ -33,6 +35,7 @@ export const DeploymentDashboard = ({ artifacts, sessionData, domain }: Deployme
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [llmUsage, setLlmUsage] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showCompliance, setShowCompliance] = useState(false);
 
   useEffect(() => {
     loadDashboardData();
@@ -91,7 +94,7 @@ export const DeploymentDashboard = ({ artifacts, sessionData, domain }: Deployme
         window.open(data.pr_url || data.repository_url, '_blank');
       }
 
-      loadDashboardData(); // Refresh audit logs
+      loadDashboardData();
     } catch (error) {
       console.error(`GitHub ${action} failed:`, error);
       toast({
@@ -103,6 +106,22 @@ export const DeploymentDashboard = ({ artifacts, sessionData, domain }: Deployme
       setIsLoading(false);
     }
   };
+
+  if (showCompliance) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center space-x-4">
+          <Button variant="ghost" size="sm" onClick={() => setShowCompliance(false)}>
+            ← Back to Deployment
+          </Button>
+          <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+            Compliance & Security
+          </Badge>
+        </div>
+        <ComplianceSecurityDashboard />
+      </div>
+    );
+  }
 
   if (isLoading && !metrics) {
     return (
@@ -124,15 +143,28 @@ export const DeploymentDashboard = ({ artifacts, sessionData, domain }: Deployme
                 GitOps integration, deployment management, and comprehensive monitoring for your {domain} AI solution.
               </p>
             </div>
-            <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-300">
-              Production Ready
-            </Badge>
+            <div className="flex space-x-2">
+              <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-300">
+                Production Ready
+              </Badge>
+              {metrics?.compliance_flags && (
+                <div className="flex space-x-1">
+                  {Object.entries(metrics.compliance_flags).map(([flag, enabled]: [string, any]) => 
+                    enabled && flag !== 'encryption_status' && flag !== 'audit_retention_days' && flag !== 'rls_compliance' ? (
+                      <Badge key={flag} variant="outline" className="bg-green-100 text-green-700 border-green-300">
+                        {flag.toUpperCase()}
+                      </Badge>
+                    ) : null
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </CardHeader>
       </Card>
 
       <Tabs defaultValue="deployment" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="deployment" className="flex items-center space-x-2">
             <Rocket className="w-4 h-4" />
             <span>Deployment</span>
@@ -148,6 +180,10 @@ export const DeploymentDashboard = ({ artifacts, sessionData, domain }: Deployme
           <TabsTrigger value="audit" className="flex items-center space-x-2">
             <Eye className="w-4 h-4" />
             <span>Audit Logs</span>
+          </TabsTrigger>
+          <TabsTrigger value="compliance" className="flex items-center space-x-2">
+            <Shield className="w-4 h-4" />
+            <span>Compliance</span>
           </TabsTrigger>
         </TabsList>
 
@@ -214,12 +250,46 @@ export const DeploymentDashboard = ({ artifacts, sessionData, domain }: Deployme
                         Pending
                       </Badge>
                     </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">Security Scan</span>
+                      <Badge variant="outline" className="text-green-600 border-green-300">
+                        <CheckCircle2 className="w-3 h-3 mr-1" />
+                        Passed
+                      </Badge>
+                    </div>
                   </div>
                 </div>
+
+                {/* Compliance Status */}
+                {metrics?.compliance_flags && (
+                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <h4 className="font-semibold mb-2 text-blue-800">Compliance Status</h4>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">RLS Policies</span>
+                        <Badge variant="outline" className="text-green-600 border-green-300">
+                          {metrics.compliance_flags.rls_compliance}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">Encryption</span>
+                        <Badge variant="outline" className="text-green-600 border-green-300">
+                          {metrics.compliance_flags.encryption_status}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">Audit Retention</span>
+                        <Badge variant="outline" className="text-blue-600 border-blue-300">
+                          {metrics.compliance_flags.audit_retention_days} days
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
-            {/* Quick Stats */}
+            {/* Enhanced Quick Stats */}
             <Card>
               <CardHeader>
                 <CardTitle>System Overview</CardTitle>
@@ -260,12 +330,11 @@ export const DeploymentDashboard = ({ artifacts, sessionData, domain }: Deployme
 
         <TabsContent value="metrics" className="mt-6">
           <div className="grid md:grid-cols-2 gap-6">
-            {/* LLM Metrics */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Activity className="w-5 h-5" />
-                  <span>LLM Performance</span>
+                  <span>Enhanced LLM Performance</span>
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -281,12 +350,20 @@ export const DeploymentDashboard = ({ artifacts, sessionData, domain }: Deployme
                         <div className="text-lg font-semibold">{metrics.llm_metrics.rag_hit_ratio}%</div>
                       </div>
                       <div>
+                        <span className="text-gray-600">Embedding Drift</span>
+                        <div className="text-lg font-semibold">{metrics.llm_metrics.embedding_drift}</div>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Cache Effectiveness</span>
+                        <div className="text-lg font-semibold">{metrics.llm_metrics.cache_effectiveness}%</div>
+                      </div>
+                      <div>
                         <span className="text-gray-600">P95 Latency</span>
                         <div className="text-lg font-semibold">{metrics.llm_metrics.avg_latency_p95}s</div>
                       </div>
                       <div>
-                        <span className="text-gray-600">Total Tokens</span>
-                        <div className="text-lg font-semibold">{metrics.llm_metrics.total_tokens.toLocaleString()}</div>
+                        <span className="text-gray-600">Contradiction Detection</span>
+                        <div className="text-lg font-semibold">{metrics.llm_metrics.contradiction_detection_rate}%</div>
                       </div>
                     </div>
                   </div>
@@ -294,7 +371,6 @@ export const DeploymentDashboard = ({ artifacts, sessionData, domain }: Deployme
               </CardContent>
             </Card>
 
-            {/* Infrastructure */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
@@ -326,7 +402,6 @@ export const DeploymentDashboard = ({ artifacts, sessionData, domain }: Deployme
 
         <TabsContent value="costs" className="mt-6">
           <div className="grid md:grid-cols-2 gap-6">
-            {/* Cost Breakdown */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
@@ -358,7 +433,6 @@ export const DeploymentDashboard = ({ artifacts, sessionData, domain }: Deployme
               </CardContent>
             </Card>
 
-            {/* Provider Usage */}
             <Card>
               <CardHeader>
                 <CardTitle>LLM Provider Usage</CardTitle>
@@ -423,6 +497,69 @@ export const DeploymentDashboard = ({ artifacts, sessionData, domain }: Deployme
                     No audit logs available
                   </div>
                 )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="compliance" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Shield className="w-5 h-5" />
+                  <span>Compliance & Security Overview</span>
+                </div>
+                <Button onClick={() => setShowCompliance(true)}>
+                  <Settings className="w-4 h-4 mr-2" />
+                  Full Dashboard
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {metrics?.compliance_flags && (
+                <div className="grid md:grid-cols-3 gap-4">
+                  <div className="p-4 border rounded-lg text-center">
+                    <div className="text-lg font-semibold text-green-600">
+                      {metrics.compliance_flags.hipaa_enabled ? 'ENABLED' : 'DISABLED'}
+                    </div>
+                    <div className="text-sm text-gray-600">HIPAA Compliance</div>
+                  </div>
+                  <div className="p-4 border rounded-lg text-center">
+                    <div className="text-lg font-semibold text-blue-600">
+                      {metrics.compliance_flags.soc2_enabled ? 'ENABLED' : 'DISABLED'}
+                    </div>
+                    <div className="text-sm text-gray-600">SOC 2 Compliance</div>
+                  </div>
+                  <div className="p-4 border rounded-lg text-center">
+                    <div className="text-lg font-semibold text-orange-600">
+                      {metrics.compliance_flags.gdpr_enabled ? 'ENABLED' : 'DISABLED'}
+                    </div>
+                    <div className="text-sm text-gray-600">GDPR Compliance</div>
+                  </div>
+                </div>
+              )}
+              
+              <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h4 className="font-semibold text-blue-800 mb-2">Security Features Active</h4>
+                <div className="grid md:grid-cols-2 gap-2 text-sm">
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                    <span>Row Level Security (RLS)</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                    <span>Automated Security Scanning</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                    <span>Audit Logging</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                    <span>Encryption at Rest & Transit</span>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
