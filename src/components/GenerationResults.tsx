@@ -13,9 +13,12 @@ import {
   Copy,
   Check,
   Eye,
-  ExternalLink
+  ExternalLink,
+  Rocket,
+  ArrowLeft
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { DeploymentDashboard } from './DeploymentDashboard';
 
 interface GenerationResultsProps {
   artifacts: any;
@@ -25,6 +28,7 @@ interface GenerationResultsProps {
 
 export const GenerationResults = ({ artifacts, sessionData, domain }: GenerationResultsProps) => {
   const [copiedItem, setCopiedItem] = useState<string>('');
+  const [showDeployment, setShowDeployment] = useState(false);
 
   const copyToClipboard = async (content: string, itemName: string) => {
     try {
@@ -87,6 +91,27 @@ export const GenerationResults = ({ artifacts, sessionData, domain }: Generation
     </div>
   );
 
+  if (showDeployment) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center space-x-4">
+          <Button variant="ghost" size="sm" onClick={() => setShowDeployment(false)}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Results
+          </Button>
+          <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+            Phase III - Deployment
+          </Badge>
+        </div>
+        <DeploymentDashboard 
+          artifacts={artifacts} 
+          sessionData={sessionData} 
+          domain={domain} 
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Header */}
@@ -116,7 +141,14 @@ export const GenerationResults = ({ artifacts, sessionData, domain }: Generation
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-3">
-            <Button className="bg-purple-600 hover:bg-purple-700">
+            <Button 
+              className="bg-purple-600 hover:bg-purple-700"
+              onClick={() => setShowDeployment(true)}
+            >
+              <Rocket className="w-4 h-4 mr-2" />
+              Deploy & Monitor
+            </Button>
+            <Button className="bg-gray-800 hover:bg-gray-900">
               <ExternalLink className="w-4 h-4 mr-2" />
               Create GitHub PR
             </Button>
@@ -255,9 +287,9 @@ export const GenerationResults = ({ artifacts, sessionData, domain }: Generation
               </p>
             </div>
             <div className="p-4 border rounded-lg">
-              <h3 className="font-semibold mb-2">3. Set Up Workflows</h3>
+              <h3 className="font-semibold mb-2">3. Monitor & Optimize</h3>
               <p className="text-sm text-gray-600">
-                Import the n8n workflow and configure your automation pipelines.
+                Use the deployment dashboard to monitor performance and optimize costs.
               </p>
             </div>
           </div>
