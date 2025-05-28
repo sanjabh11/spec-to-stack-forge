@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,10 +15,12 @@ import {
   Target,
   Shield,
   Zap,
-  Settings
+  Settings,
+  Loader2
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { GenerationResults } from './GenerationResults';
 
 interface ChatInterfaceProps {
   selectedDomain: string;
@@ -59,6 +60,9 @@ export const ChatInterface = ({ selectedDomain }: ChatInterfaceProps) => {
   const [sessionData, setSessionData] = useState<SessionData>({});
   const [llmProvider, setLlmProvider] = useState<string>('gemini');
   const [isComplete, setIsComplete] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedArtifacts, setGeneratedArtifacts] = useState<any>(null);
+  const [showResults, setShowResults] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -106,6 +110,12 @@ export const ChatInterface = ({ selectedDomain }: ChatInterfaceProps) => {
 
   const handleSendMessage = async () => {
     if (!currentInput.trim() || !sessionId) return;
+
+    // Check if user wants to generate
+    if (isComplete && currentInput.toLowerCase().includes('generate')) {
+      await handleGeneration();
+      return;
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -167,14 +177,15 @@ export const ChatInterface = ({ selectedDomain }: ChatInterfaceProps) => {
       // Check if complete
       if (data.isComplete) {
         setIsComplete(true);
-        responseContent += `\n\n🎉 **Requirements Complete!** I have all the information needed to generate your AI solution architecture. The system will now validate your specifications and prepare to generate:
+        responseContent += `\n\n🎉 **Requirements Complete!** I have all the information needed to generate your AI solution architecture. 
 
-• Architecture blueprints (YAML)
-• Terraform modules (IaC)  
-• n8n workflows (JSON)
-• CI/CD templates (GitHub Actions)
+I will now generate:
+• **Architecture Blueprint** (YAML) - System design and service specifications
+• **Infrastructure as Code** (Terraform) - Cloud resource provisioning
+• **Workflow Automation** (n8n) - Data processing and AI pipelines  
+• **CI/CD Templates** (GitHub Actions) - Automated deployment pipelines
 
-Would you like to proceed with generation?`;
+Type **"generate"** to start the automated generation process!`;
 
         toast({
           title: "Requirements Complete!",
@@ -216,6 +227,69 @@ Would you like to proceed with generation?`;
     }
   };
 
+  const handleGeneration = async () => {
+    setIsGenerating(true);
+    setCurrentInput('');
+    
+    const generationMessage: Message = {
+      id: Date.now().toString(),
+      type: 'system',
+      content: '🚀 Starting automated generation process...\n\n• Step 1: Generating architecture blueprint\n• Step 2: Creating Terraform modules\n• Step 3: Building n8n workflows\n• Step 4: Setting up CI/CD templates\n\nThis may take a few moments...',
+      timestamp: new Date()
+    };
+    
+    setMessages(prev => [...prev, generationMessage]);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-architecture', {
+        body: {
+          sessionId,
+          sessionData,
+          domain: selectedDomain,
+          llmProvider
+        }
+      });
+
+      if (error) throw error;
+
+      setGeneratedArtifacts(data.artifacts);
+      setShowResults(true);
+
+      const successMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        type: 'system',
+        content: `✅ **Generation Complete!**\n\nYour ${selectedDomain} AI solution has been successfully generated! You can now review and download all artifacts below.`,
+        timestamp: new Date()
+      };
+
+      setMessages(prev => [...prev, successMessage]);
+
+      toast({
+        title: "Generation Complete!",
+        description: "Your AI solution architecture has been generated successfully.",
+      });
+
+    } catch (error) {
+      console.error('Failed to generate architecture:', error);
+      toast({
+        title: "Generation Error",
+        description: "Failed to generate architecture. Please try again.",
+        variant: "destructive"
+      });
+      
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        type: 'system',
+        content: 'Sorry, there was an error during generation. Please try again.',
+        timestamp: new Date()
+      };
+      
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -238,8 +312,29 @@ Would you like to proceed with generation?`;
     }
   };
 
-  const totalQuestions = 5; // Based on domain questions
+  const totalQuestions = 5;
   const progress = Math.round(((currentQuestion + 1) / totalQuestions) * 100);
+
+  if (showResults && generatedArtifacts) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center space-x-4">
+          <Button variant="ghost" size="sm" onClick={() => setShowResults(false)}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Chat
+          </Button>
+          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+            {selectedDomain} - Generated
+          </Badge>
+        </div>
+        <GenerationResults 
+          artifacts={generatedArtifacts} 
+          sessionData={sessionData} 
+          domain={selectedDomain} 
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -333,10 +428,10 @@ Would you like to proceed with generation?`;
               </div>
             ))}
             
-            {isTyping && (
+            {(isTyping || isGenerating) && (
               <div className="flex items-start space-x-3">
                 <div className="p-2 rounded-xl bg-gray-100 text-gray-700">
-                  <Bot className="w-5 h-5" />
+                  {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Bot className="w-5 h-5" />}
                 </div>
                 <div className="bg-gray-50 text-gray-800 p-4 rounded-2xl">
                   <div className="flex space-x-1">
@@ -360,16 +455,22 @@ Would you like to proceed with generation?`;
             value={currentInput}
             onChange={(e) => setCurrentInput(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder={isComplete ? "Type 'generate' to start generation..." : "Type your response..."}
+            placeholder={
+              isComplete 
+                ? "Type 'generate' to start generation..." 
+                : isGenerating 
+                ? "Generating..." 
+                : "Type your response..."
+            }
             className="flex-1 bg-white/50"
-            disabled={isTyping}
+            disabled={isTyping || isGenerating}
           />
           <Button 
             onClick={handleSendMessage}
-            disabled={!currentInput.trim() || isTyping}
+            disabled={!currentInput.trim() || isTyping || isGenerating}
             className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
           >
-            <Send className="w-4 h-4" />
+            {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
           </Button>
         </div>
         
