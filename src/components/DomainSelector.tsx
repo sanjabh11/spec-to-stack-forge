@@ -1,19 +1,15 @@
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
+
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
   Scale, 
   DollarSign, 
+  Heart, 
   Users, 
-  HeadphonesIcon, 
-  Briefcase, 
-  Shield, 
-  TrendingUp, 
-  Settings, 
-  ShoppingCart,
-  Heart,
-  Building,
-  Laptop
+  MessageSquare,
+  Building2,
+  Zap,
+  Target
 } from 'lucide-react';
 
 interface DomainSelectorProps {
@@ -21,192 +17,123 @@ interface DomainSelectorProps {
 }
 
 export const DomainSelector = ({ onSelect }: DomainSelectorProps) => {
-  const [selectedDomain, setSelectedDomain] = useState<string>('');
-
   const domains = [
     {
-      id: 'legal',
+      id: 'Legal',
       name: 'Legal',
       icon: Scale,
-      description: 'Contract analysis, compliance monitoring, legal research',
-      subdomains: ['Contract Management', 'Regulatory Compliance', 'Legal Research'],
-      color: 'bg-red-50 border-red-200 hover:bg-red-100',
-      iconColor: 'text-red-600'
+      description: 'Contract analysis, compliance monitoring, legal research automation',
+      color: 'bg-blue-500',
+      examples: ['Contract Review', 'Compliance Monitoring', 'Legal Research'],
+      testId: 'domain-legal'
     },
     {
-      id: 'finance',
+      id: 'Finance',
       name: 'Finance',
       icon: DollarSign,
-      description: 'Risk assessment, fraud detection, financial planning',
-      subdomains: ['Risk Management', 'Fraud Detection', 'Investment Analysis'],
-      color: 'bg-green-50 border-green-200 hover:bg-green-100',
-      iconColor: 'text-green-600'
+      description: 'Risk assessment, fraud detection, financial planning and analysis',
+      color: 'bg-green-500',
+      examples: ['Risk Assessment', 'Fraud Detection', 'Financial Planning'],
+      testId: 'domain-finance'
     },
     {
-      id: 'hr',
-      name: 'Human Resources',
-      icon: Users,
-      description: 'Recruitment, performance analysis, employee engagement',
-      subdomains: ['Talent Acquisition', 'Performance Management', 'Employee Analytics'],
-      color: 'bg-blue-50 border-blue-200 hover:bg-blue-100',
-      iconColor: 'text-blue-600'
-    },
-    {
-      id: 'support',
-      name: 'Customer Support',
-      icon: HeadphonesIcon,
-      description: 'Ticket automation, sentiment analysis, knowledge base',
-      subdomains: ['Ticket Automation', 'Sentiment Analysis', 'Knowledge Management'],
-      color: 'bg-purple-50 border-purple-200 hover:bg-purple-100',
-      iconColor: 'text-purple-600'
-    },
-    {
-      id: 'operations',
-      name: 'Operations',
-      icon: Settings,
-      description: 'Process optimization, supply chain, quality control',
-      subdomains: ['Process Automation', 'Supply Chain', 'Quality Assurance'],
-      color: 'bg-orange-50 border-orange-200 hover:bg-orange-100',
-      iconColor: 'text-orange-600'
-    },
-    {
-      id: 'marketing',
-      name: 'Marketing',
-      icon: TrendingUp,
-      description: 'Campaign optimization, lead scoring, content generation',
-      subdomains: ['Campaign Analytics', 'Lead Generation', 'Content Creation'],
-      color: 'bg-pink-50 border-pink-200 hover:bg-pink-100',
-      iconColor: 'text-pink-600'
-    },
-    {
-      id: 'sales',
-      name: 'Sales',
-      icon: ShoppingCart,
-      description: 'Lead qualification, pipeline management, forecasting',
-      subdomains: ['Lead Qualification', 'Pipeline Analytics', 'Sales Forecasting'],
-      color: 'bg-indigo-50 border-indigo-200 hover:bg-indigo-100',
-      iconColor: 'text-indigo-600'
-    },
-    {
-      id: 'healthcare',
+      id: 'Healthcare',
       name: 'Healthcare',
       icon: Heart,
-      description: 'Patient management, clinical research, diagnostics',
-      subdomains: ['EMR Systems', 'Clinical Trials', 'Diagnostic Support'],
-      color: 'bg-teal-50 border-teal-200 hover:bg-teal-100',
-      iconColor: 'text-teal-600'
+      description: 'Clinical decision support, patient monitoring, medical research',
+      color: 'bg-red-500',
+      examples: ['Clinical Notes', 'Patient Monitoring', 'Diagnosis Support'],
+      testId: 'domain-healthcare'
     },
     {
-      id: 'compliance',
-      name: 'Compliance',
-      icon: Shield,
-      description: 'Regulatory monitoring, audit automation, policy management',
-      subdomains: ['Regulatory Tracking', 'Audit Automation', 'Policy Management'],
-      color: 'bg-gray-50 border-gray-200 hover:bg-gray-100',
-      iconColor: 'text-gray-600'
+      id: 'Human Resources',
+      name: 'Human Resources',
+      icon: Users,
+      description: 'Recruitment automation, performance analysis, employee engagement',
+      color: 'bg-purple-500',
+      examples: ['Resume Screening', 'Performance Review', 'Employee Surveys'],
+      testId: 'domain-hr'
     },
     {
-      id: 'research',
-      name: 'R&D',
-      icon: Briefcase,
-      description: 'Research automation, data analysis, innovation tracking',
-      subdomains: ['Research Analytics', 'Innovation Tracking', 'Patent Analysis'],
-      color: 'bg-cyan-50 border-cyan-200 hover:bg-cyan-100',
-      iconColor: 'text-cyan-600'
-    },
-    {
-      id: 'real-estate',
-      name: 'Real Estate',
-      icon: Building,
-      description: 'Property valuation, market analysis, tenant management',
-      subdomains: ['Property Valuation', 'Market Analytics', 'Tenant Management'],
-      color: 'bg-amber-50 border-amber-200 hover:bg-amber-100',
-      iconColor: 'text-amber-600'
-    },
-    {
-      id: 'technology',
-      name: 'Technology',
-      icon: Laptop,
-      description: 'Code generation, system monitoring, deployment automation',
-      subdomains: ['Code Generation', 'System Monitoring', 'DevOps Automation'],
-      color: 'bg-slate-50 border-slate-200 hover:bg-slate-100',
-      iconColor: 'text-slate-600'
+      id: 'Customer Support',
+      name: 'Customer Support',
+      icon: MessageSquare,
+      description: 'Ticket automation, sentiment analysis, knowledge base management',
+      color: 'bg-orange-500',
+      examples: ['Ticket Routing', 'Sentiment Analysis', 'FAQ Automation'],
+      testId: 'domain-support'
     }
   ];
-
-  const handleDomainClick = (domainId: string) => {
-    setSelectedDomain(domainId);
-  };
-
-  const handleGetStarted = () => {
-    if (selectedDomain) {
-      const domain = domains.find(d => d.id === selectedDomain);
-      onSelect(domain?.name || selectedDomain);
-    }
-  };
 
   return (
     <div className="max-w-6xl mx-auto">
       <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-gray-900 mb-4">
-          Choose Your Domain
-        </h2>
-        <p className="text-lg text-gray-600">
-          Select the industry or functional area for your AI solution
+        <h3 className="text-2xl font-bold text-gray-900 mb-4">
+          🎯 Choose Your Domain
+        </h3>
+        <p className="text-gray-600 max-w-2xl mx-auto">
+          Select the industry or use case that best matches your AI solution requirements. 
+          Each domain is optimized with specific templates and compliance considerations.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        {domains.map((domain) => (
-          <div
-            key={domain.id}
-            onClick={() => handleDomainClick(domain.id)}
-            className={`p-6 rounded-2xl border-2 cursor-pointer transition-all duration-300 hover:shadow-lg hover:scale-105 ${
-              selectedDomain === domain.id 
-                ? 'ring-2 ring-blue-500 ring-offset-2 bg-blue-50 border-blue-200' 
-                : domain.color
-            }`}
-          >
-            <div className="flex items-start space-x-4">
-              <div className={`p-3 rounded-xl bg-white shadow-sm`}>
-                <domain.icon className={`w-6 h-6 ${domain.iconColor}`} />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-gray-900 mb-2">
-                  {domain.name}
-                </h3>
-                <p className="text-sm text-gray-600 mb-3">
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {domains.map((domain) => {
+          const IconComponent = domain.icon;
+          return (
+            <Card 
+              key={domain.id} 
+              className="group cursor-pointer hover:shadow-lg transition-all duration-200 border-2 hover:border-blue-300 bg-white/80 backdrop-blur-sm"
+              onClick={() => onSelect(domain.id)}
+              data-testid={domain.testId}
+            >
+              <CardContent className="p-6">
+                <div className="flex items-center space-x-3 mb-4">
+                  <div className={`p-3 rounded-xl ${domain.color} text-white group-hover:scale-110 transition-transform`}>
+                    <IconComponent className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-lg text-gray-900">{domain.name}</h4>
+                    <Badge variant="outline" className="text-xs">AI-Powered</Badge>
+                  </div>
+                </div>
+                
+                <p className="text-gray-600 text-sm mb-4 leading-relaxed">
                   {domain.description}
                 </p>
-                <div className="flex flex-wrap gap-1">
-                  {domain.subdomains.slice(0, 2).map((subdomain, index) => (
-                    <Badge key={index} variant="secondary" className="text-xs">
-                      {subdomain}
-                    </Badge>
-                  ))}
-                  {domain.subdomains.length > 2 && (
-                    <Badge variant="outline" className="text-xs">
-                      +{domain.subdomains.length - 2}
-                    </Badge>
-                  )}
+                
+                <div className="space-y-2">
+                  <h5 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Use Cases:</h5>
+                  <div className="flex flex-wrap gap-1">
+                    {domain.examples.map((example) => (
+                      <Badge key={example} variant="secondary" className="text-xs bg-gray-100 text-gray-700">
+                        {example}
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </div>
-          </div>
-        ))}
+                
+                <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
+                  <div className="flex items-center space-x-1 text-xs text-gray-500">
+                    <Target className="w-3 h-3" />
+                    <span>Optimized Templates</span>
+                  </div>
+                  <div className="flex items-center space-x-1 text-xs text-blue-600 group-hover:text-blue-700">
+                    <Zap className="w-3 h-3" />
+                    <span>Quick Start</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
-
-      {selectedDomain && (
-        <div className="text-center animate-fade-in">
-          <Button 
-            onClick={handleGetStarted}
-            size="lg"
-            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
-          >
-            Start Building Your AI Solution
-          </Button>
-        </div>
-      )}
+      
+      <div className="mt-8 text-center">
+        <p className="text-sm text-gray-500">
+          Don't see your domain? Contact us to add custom domain templates.
+        </p>
+      </div>
     </div>
   );
 };

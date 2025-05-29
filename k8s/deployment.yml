@@ -1,0 +1,62 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-advisor
+  labels:
+    app: ai-advisor
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ai-advisor
+  template:
+    metadata:
+      labels:
+        app: ai-advisor
+    spec:
+      containers:
+      - name: ai-advisor
+        image: ai-advisor:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: VITE_SUPABASE_URL
+          value: "https://vydevqjpfwlizelblavb.supabase.co"
+        - name: VITE_SUPABASE_ANON_KEY
+          valueFrom:
+            secretKeyRef:
+              name: supabase-secrets
+              key: anon-key
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-advisor-service
+spec:
+  selector:
+    app: ai-advisor
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 3000
+  type: LoadBalancer

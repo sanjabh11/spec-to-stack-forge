@@ -1,0 +1,108 @@
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    - run: npm ci
+    - run: npm run lint
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    - run: npm ci
+    - run: npm run test:coverage
+    - uses: codecov/codecov-action@v3
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    - run: npm ci
+    - run: npx playwright install
+    - run: npm run test:e2e
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Run security audit
+      run: npm audit --audit-level moderate
+
+  build:
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    - run: npm ci
+    - run: npm run build
+    - uses: actions/upload-artifact@v3
+      with:
+        name: build-files
+        path: dist/
+
+  deploy-staging:
+    needs: [build, e2e, security]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/download-artifact@v3
+      with:
+        name: build-files
+        path: dist/
+    - name: Deploy to staging
+      run: echo "Deploy to staging environment"
+
+  deploy-production:
+    needs: [build, e2e, security]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/download-artifact@v3
+      with:
+        name: build-files
+        path: dist/
+    - name: Deploy to production
+      run: echo "Deploy to production environment"
+    - name: Run smoke tests
+      run: bash ./scripts/smoke-test.sh
+
+  performance:
+    needs: [deploy-staging]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    steps:
+    - uses: actions/checkout@v4
+    - name: Run k6 load test
+      uses: grafana/k6-action@v0.3.1
+      with:
+        filename: tests/performance/load-test.js

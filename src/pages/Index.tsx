@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Header } from "@/components/Header";
 import { DomainSelector } from "@/components/DomainSelector";
@@ -5,8 +6,9 @@ import { ChatInterface } from "@/components/ChatInterface";
 import { GenerationResults } from "@/components/GenerationResults";
 import { StatsOverview } from "@/components/StatsOverview";
 import { DeploymentDashboard } from "@/components/DeploymentDashboard";
+import { HealthCheck } from "@/components/HealthCheck";
 import { Button } from "@/components/ui/button";
-import { LogOut, User } from "lucide-react";
+import { LogOut, User, Settings } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Database, ArrowLeft } from "lucide-react";
 import { KnowledgeBaseManager } from "@/components/KnowledgeBaseManager";
@@ -21,6 +23,7 @@ const Index = ({ user, onLogout }: IndexProps) => {
   const [sessionData, setSessionData] = useState(null);
   const [artifacts, setArtifacts] = useState(null);
   const [showKnowledgeBase, setShowKnowledgeBase] = useState(false);
+  const [showHealthCheck, setShowHealthCheck] = useState(false);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
@@ -37,15 +40,28 @@ const Index = ({ user, onLogout }: IndexProps) => {
               {user.role}
             </Badge>
           </div>
-          <Button variant="outline" onClick={onLogout} className="flex items-center space-x-2">
-            <LogOut className="w-4 h-4" />
-            <span>Logout</span>
-          </Button>
+          <div className="flex items-center space-x-2">
+            <Button variant="outline" size="sm" onClick={() => setShowHealthCheck(!showHealthCheck)}>
+              <Settings className="w-4 h-4 mr-2" />
+              System Status
+            </Button>
+            <Button variant="outline" onClick={onLogout} className="flex items-center space-x-2">
+              <LogOut className="w-4 h-4" />
+              <span>Logout</span>
+            </Button>
+          </div>
         </div>
       </div>
 
       <div className="container mx-auto py-8 space-y-8">
         <Header />
+        
+        {/* Health Check Panel */}
+        {showHealthCheck && (
+          <div className="max-w-md mx-auto">
+            <HealthCheck />
+          </div>
+        )}
         
         {!selectedDomain && !showKnowledgeBase && (
           <div className="text-center space-y-6">
