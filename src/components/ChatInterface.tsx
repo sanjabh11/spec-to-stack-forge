@@ -23,7 +23,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { GenerationResults } from './GenerationResults';
 
 interface ChatInterfaceProps {
-  selectedDomain: string;
+  domain: string;
+  onSessionComplete: (sessionData: any) => void;
 }
 
 interface Message {
@@ -51,7 +52,7 @@ interface SessionData {
   llm_provider?: string;
 }
 
-export const ChatInterface = ({ selectedDomain }: ChatInterfaceProps) => {
+export const ChatInterface = ({ domain, onSessionComplete }: ChatInterfaceProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentInput, setCurrentInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -67,7 +68,7 @@ export const ChatInterface = ({ selectedDomain }: ChatInterfaceProps) => {
 
   useEffect(() => {
     initializeSession();
-  }, [selectedDomain]);
+  }, [domain]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -76,7 +77,7 @@ export const ChatInterface = ({ selectedDomain }: ChatInterfaceProps) => {
   const initializeSession = async () => {
     try {
       const { data, error } = await supabase.functions.invoke('start-requirement-session', {
-        body: { domain: selectedDomain }
+        body: { domain: domain }
       });
 
       if (error) throw error;
@@ -86,7 +87,7 @@ export const ChatInterface = ({ selectedDomain }: ChatInterfaceProps) => {
       const welcomeMessage: Message = {
         id: '1',
         type: 'assistant',
-        content: `Welcome to the AI Platform Advisor! I'm here to help you design and generate a complete AI solution for your ${selectedDomain} needs. I'll ask you a series of questions to understand your requirements, validate them in real-time, and then generate production-ready code and infrastructure.`,
+        content: `Welcome to the AI Platform Advisor! I'm here to help you design and generate a complete AI solution for your ${domain} needs. I'll ask you a series of questions to understand your requirements, validate them in real-time, and then generate production-ready code and infrastructure.`,
         timestamp: new Date()
       };
 
@@ -134,7 +135,7 @@ export const ChatInterface = ({ selectedDomain }: ChatInterfaceProps) => {
           sessionId,
           userResponse: currentInput,
           currentQuestion,
-          domain: selectedDomain,
+          domain: domain,
           llmProvider
         }
       });
@@ -191,6 +192,9 @@ Type **"generate"** to start the automated generation process!`;
           title: "Requirements Complete!",
           description: "Your specifications have been validated and are ready for generation.",
         });
+        
+        // Call the onSessionComplete callback
+        onSessionComplete(data.sessionData);
       } else if (data.nextQuestion) {
         setCurrentQuestion(prev => prev + 1);
         responseContent += `\n\n${data.nextQuestion.question}`;
@@ -245,7 +249,7 @@ Type **"generate"** to start the automated generation process!`;
         body: {
           sessionId,
           sessionData,
-          domain: selectedDomain,
+          domain: domain,
           llmProvider
         }
       });
@@ -258,7 +262,7 @@ Type **"generate"** to start the automated generation process!`;
       const successMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'system',
-        content: `✅ **Generation Complete!**\n\nYour ${selectedDomain} AI solution has been successfully generated! You can now review and download all artifacts below.`,
+        content: `✅ **Generation Complete!**\n\nYour ${domain} AI solution has been successfully generated! You can now review and download all artifacts below.`,
         timestamp: new Date()
       };
 
@@ -324,13 +328,13 @@ Type **"generate"** to start the automated generation process!`;
             Back to Chat
           </Button>
           <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-            {selectedDomain} - Generated
+            {domain} - Generated
           </Badge>
         </div>
         <GenerationResults 
           artifacts={generatedArtifacts} 
           sessionData={sessionData} 
-          domain={selectedDomain} 
+          domain={domain} 
         />
       </div>
     );
@@ -347,7 +351,7 @@ Type **"generate"** to start the automated generation process!`;
               Back to Domains
             </Button>
             <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-              {selectedDomain}
+              {domain}
             </Badge>
             <div className="flex items-center space-x-2">
               <Settings className="w-4 h-4" />

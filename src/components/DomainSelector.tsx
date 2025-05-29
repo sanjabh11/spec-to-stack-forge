@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,10 +17,10 @@ import {
 } from 'lucide-react';
 
 interface DomainSelectorProps {
-  onDomainSelect: (domain: string) => void;
+  onSelect: (domain: string) => void;
 }
 
-export const DomainSelector = ({ onDomainSelect }: DomainSelectorProps) => {
+export const DomainSelector = ({ onSelect }: DomainSelectorProps) => {
   const [selectedDomain, setSelectedDomain] = useState<string>('');
 
   const domains = [
@@ -142,7 +141,7 @@ export const DomainSelector = ({ onDomainSelect }: DomainSelectorProps) => {
   const handleGetStarted = () => {
     if (selectedDomain) {
       const domain = domains.find(d => d.id === selectedDomain);
-      onDomainSelect(domain?.name || selectedDomain);
+      onSelect(domain?.name || selectedDomain);
     }
   };
 

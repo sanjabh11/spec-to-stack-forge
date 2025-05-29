@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,14 +20,112 @@ import { toast } from '@/hooks/use-toast';
 import { DeploymentDashboard } from './DeploymentDashboard';
 
 interface GenerationResultsProps {
-  artifacts: any;
   sessionData: any;
   domain: string;
+  onArtifactsGenerated: (artifacts: any) => void;
 }
 
-export const GenerationResults = ({ artifacts, sessionData, domain }: GenerationResultsProps) => {
+export const GenerationResults = ({ sessionData, domain, onArtifactsGenerated }: GenerationResultsProps) => {
   const [copiedItem, setCopiedItem] = useState<string>('');
   const [showDeployment, setShowDeployment] = useState(false);
+  const [artifacts, setArtifacts] = useState<any>(null);
+
+  // Mock artifacts generation - in real implementation this would come from props
+  useState(() => {
+    const mockArtifacts = {
+      architecture: {
+        yaml: `# ${domain} AI Solution Architecture
+version: "3.8"
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://user:pass@db:5432/aiplatform
+  db:
+    image: postgres:13
+    environment:
+      - POSTGRES_DB=aiplatform
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=pass`
+      },
+      terraform: {
+        files: {
+          "main.tf": `provider "aws" {
+  region = "us-west-2"
+}
+
+resource "aws_instance" "app" {
+  ami           = "ami-0c55b159cbfafe1d0"
+  instance_type = "t2.micro"
+  
+  tags = {
+    Name = "${domain}-ai-platform"
+  }
+}`,
+          "variables.tf": `variable "region" {
+  description = "AWS region"
+  default     = "us-west-2"
+}
+
+variable "instance_type" {
+  description = "EC2 instance type"
+  default     = "t2.micro"
+}`
+        }
+      },
+      workflow: {
+        n8n_json: {
+          "nodes": [
+            {
+              "parameters": {
+                "httpMethod": "POST",
+                "path": "/webhook",
+                "responseMode": "responseNode"
+              },
+              "id": "webhook-1",
+              "name": "Webhook",
+              "type": "n8n-nodes-base.webhook",
+              "typeVersion": 1,
+              "position": [250, 300]
+            }
+          ],
+          "connections": {}
+        }
+      },
+      cicd: {
+        github_actions: `name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run tests
+      run: |
+        npm install
+        npm test
+        
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+    - name: Deploy to production
+      run: echo "Deploying ${domain} AI solution"`
+      }
+    };
+    
+    setArtifacts(mockArtifacts);
+    onArtifactsGenerated(mockArtifacts);
+  });
 
   const copyToClipboard = async (content: string, itemName: string) => {
     try {
@@ -91,7 +188,7 @@ export const GenerationResults = ({ artifacts, sessionData, domain }: Generation
     </div>
   );
 
-  if (showDeployment) {
+  if (showDeployment && artifacts) {
     return (
       <div className="space-y-6">
         <div className="flex items-center space-x-4">
@@ -108,6 +205,17 @@ export const GenerationResults = ({ artifacts, sessionData, domain }: Generation
           sessionData={sessionData} 
           domain={domain} 
         />
+      </div>
+    );
+  }
+
+  if (!artifacts) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Generating artifacts...</p>
+        </div>
       </div>
     );
   }
