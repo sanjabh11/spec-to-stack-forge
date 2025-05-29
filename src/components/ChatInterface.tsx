@@ -334,7 +334,8 @@ Type **"generate"** to start the automated generation process!`;
         <GenerationResults 
           artifacts={generatedArtifacts} 
           sessionData={sessionData} 
-          domain={domain} 
+          domain={domain}
+          onArtifactsGenerated={setGeneratedArtifacts}
         />
       </div>
     );

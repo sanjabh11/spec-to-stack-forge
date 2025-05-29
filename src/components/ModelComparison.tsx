@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { 
-  Compare, 
+  GitCompare, 
   Brain, 
   Clock, 
   DollarSign, 
@@ -276,7 +275,7 @@ This enterprise-grade AI platform is designed for ${domain.toLowerCase()} applic
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-2xl text-blue-800 flex items-center space-x-2">
-                <Compare className="w-6 h-6" />
+                <GitCompare className="w-6 h-6" />
                 <span>Model Comparison Dashboard</span>
               </CardTitle>
               <p className="text-blue-600 mt-2">
@@ -318,7 +317,7 @@ This enterprise-grade AI platform is designed for ${domain.toLowerCase()} applic
               {isComparing ? (
                 <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
               ) : (
-                <Compare className="w-4 h-4 mr-2" />
+                <GitCompare className="w-4 h-4 mr-2" />
               )}
               {isComparing ? 'Comparing...' : 'Run Comparison'}
             </Button>

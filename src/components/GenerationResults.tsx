@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,7 +16,7 @@ import {
   ExternalLink,
   Rocket,
   ArrowLeft,
-  Compare,
+  GitCompare,
   Star,
   Brain
 } from 'lucide-react';
@@ -312,7 +313,7 @@ jobs:
               className="bg-blue-600 hover:bg-blue-700"
               onClick={() => setShowModelComparison(true)}
             >
-              <Compare className="w-4 h-4 mr-2" />
+              <GitCompare className="w-4 h-4 mr-2" />
               Compare Models
             </Button>
             <Button 

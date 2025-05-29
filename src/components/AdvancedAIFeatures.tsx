@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -6,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { 
   Brain, 
-  Compare, 
+  GitCompare, 
   Star, 
   Search, 
   Settings, 
@@ -32,7 +31,7 @@ export const AdvancedAIFeatures = ({ artifacts, sessionData, domain }: AdvancedA
     {
       id: 'comparison',
       name: 'Model Comparison',
-      icon: Compare,
+      icon: GitCompare,
       description: 'Side-by-side comparison of different LLM outputs',
       status: 'active',
       metrics: { accuracy: '94.2%', speed: '2.1s', cost: '$0.023' }
@@ -224,7 +223,7 @@ export const AdvancedAIFeatures = ({ artifacts, sessionData, domain }: AdvancedA
                 <tr className="border-b">
                   <td className="p-3">
                     <div className="flex items-center space-x-2">
-                      <Compare className="w-4 h-4 text-blue-500" />
+                      <GitCompare className="w-4 h-4 text-blue-500" />
                       <span>Model Comparison</span>
                     </div>
                   </td>
