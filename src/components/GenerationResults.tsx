@@ -14,27 +14,36 @@ import {
   Eye,
   ExternalLink,
   Rocket,
-  ArrowLeft
+  ArrowLeft,
+  Compare,
+  Star,
+  Brain
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { DeploymentDashboard } from './DeploymentDashboard';
+import { ModelComparison } from './ModelComparison';
+import { QualityScoring } from './QualityScoring';
 
 interface GenerationResultsProps {
   sessionData: any;
   domain: string;
   onArtifactsGenerated: (artifacts: any) => void;
+  artifacts?: any;
 }
 
-export const GenerationResults = ({ sessionData, domain, onArtifactsGenerated }: GenerationResultsProps) => {
+export const GenerationResults = ({ sessionData, domain, onArtifactsGenerated, artifacts: propsArtifacts }: GenerationResultsProps) => {
   const [copiedItem, setCopiedItem] = useState<string>('');
   const [showDeployment, setShowDeployment] = useState(false);
-  const [artifacts, setArtifacts] = useState<any>(null);
+  const [showModelComparison, setShowModelComparison] = useState(false);
+  const [showQualityScoring, setShowQualityScoring] = useState(false);
+  const [artifacts, setArtifacts] = useState<any>(propsArtifacts || null);
 
   // Mock artifacts generation - in real implementation this would come from props
   useState(() => {
-    const mockArtifacts = {
-      architecture: {
-        yaml: `# ${domain} AI Solution Architecture
+    if (!artifacts) {
+      const mockArtifacts = {
+        architecture: {
+          yaml: `# ${domain} AI Solution Architecture
 version: "3.8"
 services:
   api:
@@ -49,10 +58,10 @@ services:
       - POSTGRES_DB=aiplatform
       - POSTGRES_USER=user
       - POSTGRES_PASSWORD=pass`
-      },
-      terraform: {
-        files: {
-          "main.tf": `provider "aws" {
+        },
+        terraform: {
+          files: {
+            "main.tf": `provider "aws" {
   region = "us-west-2"
 }
 
@@ -64,7 +73,7 @@ resource "aws_instance" "app" {
     Name = "${domain}-ai-platform"
   }
 }`,
-          "variables.tf": `variable "region" {
+            "variables.tf": `variable "region" {
   description = "AWS region"
   default     = "us-west-2"
 }
@@ -73,29 +82,29 @@ variable "instance_type" {
   description = "EC2 instance type"
   default     = "t2.micro"
 }`
-        }
-      },
-      workflow: {
-        n8n_json: {
-          "nodes": [
-            {
-              "parameters": {
-                "httpMethod": "POST",
-                "path": "/webhook",
-                "responseMode": "responseNode"
-              },
-              "id": "webhook-1",
-              "name": "Webhook",
-              "type": "n8n-nodes-base.webhook",
-              "typeVersion": 1,
-              "position": [250, 300]
-            }
-          ],
-          "connections": {}
-        }
-      },
-      cicd: {
-        github_actions: `name: CI/CD Pipeline
+          }
+        },
+        workflow: {
+          n8n_json: {
+            "nodes": [
+              {
+                "parameters": {
+                  "httpMethod": "POST",
+                  "path": "/webhook",
+                  "responseMode": "responseNode"
+                },
+                "id": "webhook-1",
+                "name": "Webhook",
+                "type": "n8n-nodes-base.webhook",
+                "typeVersion": 1,
+                "position": [250, 300]
+              }
+            ],
+            "connections": {}
+          }
+        },
+        cicd: {
+          github_actions: `name: CI/CD Pipeline
 
 on:
   push:
@@ -120,11 +129,12 @@ jobs:
     steps:
     - name: Deploy to production
       run: echo "Deploying ${domain} AI solution"`
-      }
-    };
-    
-    setArtifacts(mockArtifacts);
-    onArtifactsGenerated(mockArtifacts);
+        }
+      };
+      
+      setArtifacts(mockArtifacts);
+      onArtifactsGenerated(mockArtifacts);
+    }
   });
 
   const copyToClipboard = async (content: string, itemName: string) => {
@@ -209,6 +219,48 @@ jobs:
     );
   }
 
+  if (showModelComparison && artifacts) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center space-x-4">
+          <Button variant="ghost" size="sm" onClick={() => setShowModelComparison(false)}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Results
+          </Button>
+          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+            Model Comparison
+          </Badge>
+        </div>
+        <ModelComparison 
+          artifacts={artifacts} 
+          sessionData={sessionData} 
+          domain={domain} 
+        />
+      </div>
+    );
+  }
+
+  if (showQualityScoring && artifacts) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center space-x-4">
+          <Button variant="ghost" size="sm" onClick={() => setShowQualityScoring(false)}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Results
+          </Button>
+          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+            Quality Scoring
+          </Badge>
+        </div>
+        <QualityScoring 
+          artifacts={artifacts} 
+          sessionData={sessionData} 
+          domain={domain} 
+        />
+      </div>
+    );
+  }
+
   if (!artifacts) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -255,6 +307,20 @@ jobs:
             >
               <Rocket className="w-4 h-4 mr-2" />
               Deploy & Monitor
+            </Button>
+            <Button 
+              className="bg-blue-600 hover:bg-blue-700"
+              onClick={() => setShowModelComparison(true)}
+            >
+              <Compare className="w-4 h-4 mr-2" />
+              Compare Models
+            </Button>
+            <Button 
+              className="bg-green-600 hover:bg-green-700"
+              onClick={() => setShowQualityScoring(true)}
+            >
+              <Star className="w-4 h-4 mr-2" />
+              Quality Score
             </Button>
             <Button className="bg-gray-800 hover:bg-gray-900">
               <ExternalLink className="w-4 h-4 mr-2" />
