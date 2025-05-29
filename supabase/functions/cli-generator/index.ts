@@ -216,6 +216,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 )
 
 type Client struct {
@@ -340,76 +341,6 @@ require (
 )`;
 }
 
-function generateRustMain(): string {
-  return `use clap::{App, Arg, SubCommand};
-use std::process;
-
-mod commands;
-mod client;
-mod cache;
-
-fn main() {
-    let matches = App::new("aiapp")
-        .version("1.0.0")
-        .about("AI Platform Advisor CLI")
-        .subcommand(
-            SubCommand::with_name("generate")
-                .about("Generate AI platform architecture from specification")
-                .arg(
-                    Arg::with_name("spec")
-                        .short("s")
-                        .long("spec")
-                        .value_name("FILE")
-                        .help("Path to specification JSON file")
-                        .required(true),
-                )
-                .arg(
-                    Arg::with_name("llm-provider")
-                        .short("l")
-                        .long("llm-provider")
-                        .value_name("PROVIDER")
-                        .help("LLM provider to use")
-                        .default_value("gemini-2.5-pro"),
-                )
-                .arg(
-                    Arg::with_name("offline")
-                        .long("offline")
-                        .help("Use cached prompts for offline generation"),
-                )
-                .arg(
-                    Arg::with_name("output")
-                        .short("o")
-                        .long("output")
-                        .value_name("DIR")
-                        .help("Output directory")
-                        .default_value("./output"),
-                )
-                .arg(
-                    Arg::with_name("compliance")
-                        .short("c")
-                        .long("compliance")
-                        .value_name("FLAGS")
-                        .help("Compliance flags (HIPAA,GDPR,SOC2)")
-                        .multiple(true),
-                ),
-        )
-        .get_matches();
-
-    match matches.subcommand() {
-        ("generate", Some(sub_matches)) => {
-            if let Err(e) = commands::generate::run(sub_matches) {
-                eprintln!("Error: {}", e);
-                process::exit(1);
-            }
-        }
-        _ => {
-            eprintln!("No subcommand provided");
-            process::exit(1);
-        }
-    }
-}`;
-}
-
 function generateCLIReadme(platform: string): string {
   return `# AI Platform Advisor CLI
 
@@ -487,7 +418,6 @@ async function getInstallInstructions(platform: string) {
 }
 
 async function generateOfflineCache(spec: any) {
-  // Generate cached responses for common patterns
   const cache = {
     version: "1.0.0",
     patterns: [
@@ -607,6 +537,76 @@ serde_json = "1.0"
 reqwest = { version = "0.11", features = ["json"] }
 tokio = { version = "1.0", features = ["full"] }
 md5 = "0.7"`;
+}
+
+function generateRustMain(): string {
+  return `use clap::{App, Arg, SubCommand};
+use std::process;
+
+mod commands;
+mod client;
+mod cache;
+
+fn main() {
+    let matches = App::new("aiapp")
+        .version("1.0.0")
+        .about("AI Platform Advisor CLI")
+        .subcommand(
+            SubCommand::with_name("generate")
+                .about("Generate AI platform architecture from specification")
+                .arg(
+                    Arg::with_name("spec")
+                        .short("s")
+                        .long("spec")
+                        .value_name("FILE")
+                        .help("Path to specification JSON file")
+                        .required(true),
+                )
+                .arg(
+                    Arg::with_name("llm-provider")
+                        .short("l")
+                        .long("llm-provider")
+                        .value_name("PROVIDER")
+                        .help("LLM provider to use")
+                        .default_value("gemini-2.5-pro"),
+                )
+                .arg(
+                    Arg::with_name("offline")
+                        .long("offline")
+                        .help("Use cached prompts for offline generation"),
+                )
+                .arg(
+                    Arg::with_name("output")
+                        .short("o")
+                        .long("output")
+                        .value_name("DIR")
+                        .help("Output directory")
+                        .default_value("./output"),
+                )
+                .arg(
+                    Arg::with_name("compliance")
+                        .short("c")
+                        .long("compliance")
+                        .value_name("FLAGS")
+                        .help("Compliance flags (HIPAA,GDPR,SOC2)")
+                        .multiple(true),
+                ),
+        )
+        .get_matches();
+
+    match matches.subcommand() {
+        ("generate", Some(sub_matches)) => {
+            if let Err(e) = commands::generate::run(sub_matches) {
+                eprintln!("Error: {}", e);
+                process::exit(1);
+            }
+        }
+        _ => {
+            eprintln!("No subcommand provided");
+            process::exit(1);
+        }
+    }
+}`;
 }
 
 function generateRustGenerateCommand(): string {
@@ -742,495 +742,3 @@ fn hash_spec(spec: &Value) -> String {
     format!("{:x}", md5::compute(spec_str.as_bytes()))
 }`;
 }
-
-Now let's enhance the DeploymentDashboard with the new compliance and security features:
-
-<lov-write file_path="src/components/ComplianceSecurityDashboard.tsx">
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Shield, 
-  AlertTriangle, 
-  CheckCircle2, 
-  XCircle,
-  Eye,
-  Download,
-  RefreshCw,
-  Lock,
-  FileText,
-  Activity
-} from 'lucide-react';
-import { toast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-
-export const ComplianceSecurityDashboard = () => {
-  const [complianceData, setComplianceData] = useState<any>(null);
-  const [securityMetrics, setSecurityMetrics] = useState<any>(null);
-  const [rlsTests, setRlsTests] = useState<any>(null);
-  const [grafanaConfig, setGrafanaConfig] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    loadComplianceData();
-  }, []);
-
-  const loadComplianceData = async () => {
-    setIsLoading(true);
-    try {
-      const [complianceRes, securityRes, rlsRes, grafanaRes] = await Promise.all([
-        supabase.functions.invoke('observability', {
-          body: { action: 'get-compliance-status' }
-        }),
-        supabase.functions.invoke('observability', {
-          body: { action: 'get-security-metrics' }
-        }),
-        supabase.functions.invoke('observability', {
-          body: { action: 'test-rls' }
-        }),
-        supabase.functions.invoke('observability', {
-          body: { action: 'get-grafana-config' }
-        })
-      ]);
-
-      if (complianceRes.data) setComplianceData(complianceRes.data);
-      if (securityRes.data) setSecurityMetrics(securityRes.data);
-      if (rlsRes.data) setRlsTests(rlsRes.data);
-      if (grafanaRes.data) setGrafanaConfig(grafanaRes.data);
-    } catch (error) {
-      console.error('Failed to load compliance data:', error);
-      toast({
-        title: "Loading Error",
-        description: "Failed to load compliance data",
-        variant: "destructive"
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const runSecurityScan = async () => {
-    setIsLoading(true);
-    try {
-      toast({
-        title: "Security Scan Started",
-        description: "Running comprehensive security analysis...",
-      });
-      
-      // Simulate security scan
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      toast({
-        title: "Security Scan Complete",
-        description: "No vulnerabilities found",
-      });
-      
-      loadComplianceData();
-    } catch (error) {
-      toast({
-        title: "Scan Failed",
-        description: "Security scan encountered an error",
-        variant: "destructive"
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const downloadGrafanaConfig = () => {
-    if (!grafanaConfig) return;
-    
-    const blob = new Blob([JSON.stringify(grafanaConfig.dashboard, null, 2)], 
-      { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'aiapp-grafana-dashboard.json';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    toast({
-      title: "Downloaded",
-      description: "Grafana dashboard configuration downloaded",
-    });
-  };
-
-  if (isLoading && !complianceData) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="max-w-7xl mx-auto space-y-6">
-      {/* Header */}
-      <Card className="bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-2xl text-purple-800">🛡️ Compliance & Security Dashboard</CardTitle>
-              <p className="text-purple-600 mt-2">
-                Monitor compliance status, security posture, and observability metrics.
-              </p>
-            </div>
-            <div className="flex space-x-2">
-              <Button variant="outline" onClick={loadComplianceData} disabled={isLoading}>
-                <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-              <Button onClick={runSecurityScan} disabled={isLoading}>
-                <Shield className="w-4 h-4 mr-2" />
-                Run Security Scan
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
-
-      <Tabs defaultValue="compliance" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="compliance" className="flex items-center space-x-2">
-            <Shield className="w-4 h-4" />
-            <span>Compliance</span>
-          </TabsTrigger>
-          <TabsTrigger value="security" className="flex items-center space-x-2">
-            <Lock className="w-4 h-4" />
-            <span>Security</span>
-          </TabsTrigger>
-          <TabsTrigger value="rls" className="flex items-center space-x-2">
-            <Eye className="w-4 h-4" />
-            <span>RLS Testing</span>
-          </TabsTrigger>
-          <TabsTrigger value="observability" className="flex items-center space-x-2">
-            <Activity className="w-4 h-4" />
-            <span>Observability</span>
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="compliance" className="mt-6">
-          <div className="grid md:grid-cols-3 gap-6">
-            {complianceData && Object.entries(complianceData.flags).map(([flag, data]: [string, any]) => (
-              <Card key={flag}>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <span>{flag}</span>
-                    <Badge variant={data.enabled ? "default" : "secondary"}>
-                      {data.enabled ? "Enabled" : "Disabled"}
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="text-center">
-                      <div className="text-3xl font-bold text-blue-600">
-                        {data.compliance_score}%
-                      </div>
-                      <div className="text-sm text-gray-600">Compliance Score</div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <h4 className="font-semibold text-sm">Requirements</h4>
-                      {Object.entries(data.requirements).map(([req, status]: [string, any]) => (
-                        <div key={req} className="flex items-center justify-between text-xs">
-                          <span className="capitalize">{req.replace(/_/g, ' ')}</span>
-                          {typeof status === 'boolean' ? (
-                            status ? (
-                              <CheckCircle2 className="w-4 h-4 text-green-500" />
-                            ) : (
-                              <XCircle className="w-4 h-4 text-red-500" />
-                            )
-                          ) : (
-                            <Badge variant="outline" className="text-xs">
-                              {status}
-                            </Badge>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    
-                    {data.last_audit && (
-                      <div className="text-xs text-gray-500">
-                        Last audit: {new Date(data.last_audit).toLocaleDateString()}
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          {complianceData?.recommendations?.length > 0 && (
-            <Card className="mt-6">
-              <CardHeader>
-                <CardTitle>Compliance Recommendations</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {complianceData.recommendations.map((rec: any, index: number) => (
-                    <div key={index} className="flex items-start space-x-3 p-3 border rounded-lg">
-                      <AlertTriangle className="w-5 h-5 text-orange-500 mt-0.5" />
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2">
-                          <Badge variant="outline">{rec.flag}</Badge>
-                          <Badge variant={rec.priority === 'high' ? 'destructive' : rec.priority === 'medium' ? 'default' : 'secondary'}>
-                            {rec.priority}
-                          </Badge>
-                        </div>
-                        <p className="text-sm mt-1">{rec.recommendation}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        <TabsContent value="security" className="mt-6">
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Vulnerability Scans */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Security Scans</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {securityMetrics && (
-                  <div className="space-y-4">
-                    <div className="p-3 border rounded-lg">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="font-semibold">Terraform Security</span>
-                        <Badge variant="outline" className="text-green-600">
-                          {securityMetrics.vulnerability_scans.terraform_scan.vulnerabilities} vulnerabilities
-                        </Badge>
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        Tool: {securityMetrics.vulnerability_scans.terraform_scan.tool}
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        Last run: {new Date(securityMetrics.vulnerability_scans.terraform_scan.last_run).toLocaleString()}
-                      </div>
-                    </div>
-                    
-                    <div className="p-3 border rounded-lg">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="font-semibold">Dependency Scan</span>
-                        <Badge variant="outline" className="text-green-600">
-                          {securityMetrics.vulnerability_scans.dependency_scan.vulnerabilities} vulnerabilities
-                        </Badge>
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        Tool: {securityMetrics.vulnerability_scans.dependency_scan.tool}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Access Patterns */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Access Patterns</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {securityMetrics && (
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span>Failed Authentications</span>
-                      <Badge variant="outline">{securityMetrics.access_patterns.failed_authentications}</Badge>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Unusual Access Attempts</span>
-                      <Badge variant="outline">{securityMetrics.access_patterns.unusual_access_attempts}</Badge>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Privilege Escalations</span>
-                      <Badge variant="outline" className="text-green-600">{securityMetrics.access_patterns.privilege_escalations}</Badge>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Data Exports</span>
-                      <Badge variant="outline">{securityMetrics.access_patterns.data_exports}</Badge>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Encryption Status */}
-            <Card className="md:col-span-2">
-              <CardHeader>
-                <CardTitle>Encryption Status</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {securityMetrics && (
-                  <div className="grid md:grid-cols-3 gap-4">
-                    <div className="text-center p-4 border rounded-lg">
-                      <div className="text-lg font-semibold">{securityMetrics.encryption_status.data_at_rest}</div>
-                      <div className="text-sm text-gray-600">Data at Rest</div>
-                    </div>
-                    <div className="text-center p-4 border rounded-lg">
-                      <div className="text-lg font-semibold">{securityMetrics.encryption_status.data_in_transit}</div>
-                      <div className="text-sm text-gray-600">Data in Transit</div>
-                    </div>
-                    <div className="text-center p-4 border rounded-lg">
-                      <div className="text-lg font-semibold">{securityMetrics.encryption_status.key_rotation}</div>
-                      <div className="text-sm text-gray-600">Key Rotation</div>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="rls" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Row Level Security Tests</span>
-                <Button variant="outline" onClick={loadComplianceData}>
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Run Tests
-                </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {rlsTests && (
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
-                    <div className={`w-4 h-4 rounded-full ${
-                      rlsTests.overall_status === 'passing' ? 'bg-green-500' : 
-                      rlsTests.overall_status === 'warning' ? 'bg-orange-500' : 'bg-red-500'
-                    }`}></div>
-                    <div>
-                      <div className="font-semibold">Overall Status: {rlsTests.overall_status}</div>
-                      <div className="text-sm text-gray-600">
-                        {rlsTests.test_results.filter((t: any) => t.status === 'passing').length} passing, 
-                        {rlsTests.test_results.filter((t: any) => t.status === 'failing').length} failing
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    {rlsTests.test_results.map((test: any, index: number) => (
-                      <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex-1">
-                          <div className="font-medium">{test.table}</div>
-                          <div className="text-sm text-gray-600">{test.policy}</div>
-                          {test.error && (
-                            <div className="text-sm text-red-600 mt-1">{test.error}</div>
-                          )}
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Badge variant={test.status === 'passing' ? 'default' : 'destructive'}>
-                            {test.status}
-                          </Badge>
-                          <div className="text-xs text-gray-500">
-                            {new Date(test.test_time).toLocaleTimeString()}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {rlsTests.recommendations?.length > 0 && (
-                    <div className="mt-6">
-                      <h4 className="font-semibold mb-3">Recommendations</h4>
-                      <div className="space-y-2">
-                        {rlsTests.recommendations.map((rec: string, index: number) => (
-                          <div key={index} className="flex items-start space-x-2 text-sm">
-                            <AlertTriangle className="w-4 h-4 text-orange-500 mt-0.5" />
-                            <span>{rec}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="observability" className="mt-6">
-          <div className="grid md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Grafana Dashboard</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <p className="text-sm text-gray-600">
-                    Download pre-configured Grafana dashboard for comprehensive observability metrics.
-                  </p>
-                  
-                  <div className="space-y-2">
-                    <h4 className="font-semibold text-sm">Included Metrics:</h4>
-                    <ul className="text-sm space-y-1">
-                      <li>• LLM token usage and costs</li>
-                      <li>• Model latency percentiles (P50, P95, P99)</li>
-                      <li>• RAG hit ratio and cache effectiveness</li>
-                      <li>• Embedding drift monitoring</li>
-                      <li>• Infrastructure resource usage</li>
-                    </ul>
-                  </div>
-
-                  <Button onClick={downloadGrafanaConfig} className="w-full">
-                    <Download className="w-4 h-4 mr-2" />
-                    Download Grafana Config
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>CLI Tool</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <p className="text-sm text-gray-600">
-                    Cross-platform CLI tool for offline generation and automation.
-                  </p>
-                  
-                  <div className="bg-gray-100 p-3 rounded-lg">
-                    <code className="text-sm">
-                      aiapp generate --spec spec.json --llm-provider gemini-2.5-pro --offline
-                    </code>
-                  </div>
-
-                  <div className="space-y-2">
-                    <h4 className="font-semibold text-sm">Features:</h4>
-                    <ul className="text-sm space-y-1">
-                      <li>• Offline mode with prompt caching</li>
-                      <li>• Multiple LLM provider support</li>
-                      <li>• Compliance flag integration</li>
-                      <li>• Cross-platform binaries (Go/Rust)</li>
-                    </ul>
-                  </div>
-
-                  <Button 
-                    onClick={() => supabase.functions.invoke('cli-generator', {
-                      body: { action: 'generate-cli', platform: 'go', spec: {} }
-                    })}
-                    variant="outline" 
-                    className="w-full"
-                  >
-                    <FileText className="w-4 h-4 mr-2" />
-                    Generate CLI Code
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
-};
