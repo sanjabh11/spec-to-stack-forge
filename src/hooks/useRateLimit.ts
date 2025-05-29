@@ -1,71 +1,57 @@
 
-import { useState, useCallback } from 'react';
-import { toast } from '@/hooks/use-toast';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface RateLimitConfig {
-  maxRequests: number;
   windowMs: number;
-  message?: string;
+  maxRequests: number;
+  blockDurationMs?: number;
 }
 
-interface RequestRecord {
-  timestamp: number;
-  count: number;
+interface RateLimitState {
+  isLimited: boolean;
+  remainingRequests: number;
+  resetTime: Date | null;
+  isBlocked: boolean;
 }
 
 export const useRateLimit = (config: RateLimitConfig) => {
-  const [requestHistory, setRequestHistory] = useState<Map<string, RequestRecord>>(new Map());
+  const [state, setState] = useState<RateLimitState>({
+    isLimited: false,
+    remainingRequests: config.maxRequests,
+    resetTime: null,
+    isBlocked: false
+  });
 
-  const checkRateLimit = useCallback((key: string = 'default'): boolean => {
-    const now = Date.now();
-    const windowStart = now - config.windowMs;
-    
-    // Get current record for this key
-    const currentRecord = requestHistory.get(key) || { timestamp: now, count: 0 };
-    
-    // Reset count if outside window
-    if (currentRecord.timestamp < windowStart) {
-      currentRecord.timestamp = now;
-      currentRecord.count = 0;
-    }
-    
-    // Check if limit exceeded
-    if (currentRecord.count >= config.maxRequests) {
-      const resetTime = new Date(currentRecord.timestamp + config.windowMs);
-      toast({
-        title: "Rate limit exceeded",
-        description: config.message || `Too many requests. Try again after ${resetTime.toLocaleTimeString()}`,
-        variant: "destructive"
+  const checkRateLimit = async (endpoint: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase.functions.invoke('rate-limiter', {
+        body: {
+          endpoint,
+          maxRequests: config.maxRequests,
+          windowMs: config.windowMs,
+          blockDurationMs: config.blockDurationMs
+        }
       });
-      return false;
-    }
-    
-    // Increment count
-    currentRecord.count++;
-    setRequestHistory(new Map(requestHistory.set(key, currentRecord)));
-    
-    return true;
-  }, [config, requestHistory]);
 
-  const getRemainingRequests = useCallback((key: string = 'default'): number => {
-    const now = Date.now();
-    const windowStart = now - config.windowMs;
-    const currentRecord = requestHistory.get(key);
-    
-    if (!currentRecord || currentRecord.timestamp < windowStart) {
-      return config.maxRequests;
-    }
-    
-    return Math.max(0, config.maxRequests - currentRecord.count);
-  }, [config, requestHistory]);
+      if (error) throw error;
 
-  const resetRateLimit = useCallback((key: string = 'default') => {
-    setRequestHistory(new Map(requestHistory.delete(key) ? requestHistory : requestHistory));
-  }, [requestHistory]);
+      setState({
+        isLimited: !data.allowed,
+        remainingRequests: data.remaining,
+        resetTime: data.resetTime ? new Date(data.resetTime) : null,
+        isBlocked: data.blocked || false
+      });
+
+      return data.allowed;
+    } catch (error) {
+      console.error('Rate limit check failed:', error);
+      return true; // Fail open for better UX
+    }
+  };
 
   return {
-    checkRateLimit,
-    getRemainingRequests,
-    resetRateLimit
+    ...state,
+    checkRateLimit
   };
 };

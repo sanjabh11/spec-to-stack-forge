@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Header } from "@/components/Header";
 import { DomainSelector } from "@/components/DomainSelector";
@@ -9,6 +8,8 @@ import { DeploymentDashboard } from "@/components/DeploymentDashboard";
 import { Button } from "@/components/ui/button";
 import { LogOut, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Database, ArrowLeft } from "lucide-react";
+import { KnowledgeBaseManager } from "@/components/KnowledgeBaseManager";
 
 interface IndexProps {
   user: any;
@@ -19,6 +20,7 @@ const Index = ({ user, onLogout }: IndexProps) => {
   const [selectedDomain, setSelectedDomain] = useState("");
   const [sessionData, setSessionData] = useState(null);
   const [artifacts, setArtifacts] = useState(null);
+  const [showKnowledgeBase, setShowKnowledgeBase] = useState(false);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
@@ -45,7 +47,7 @@ const Index = ({ user, onLogout }: IndexProps) => {
       <div className="container mx-auto py-8 space-y-8">
         <Header />
         
-        {!selectedDomain && (
+        {!selectedDomain && !showKnowledgeBase && (
           <div className="text-center space-y-6">
             <div>
               <h2 className="text-3xl font-bold text-gray-900 mb-4">
@@ -56,11 +58,40 @@ const Index = ({ user, onLogout }: IndexProps) => {
                 Select your domain to begin the journey.
               </p>
             </div>
+            
+            <div className="flex justify-center space-x-4 mb-6">
+              <Button 
+                onClick={() => setShowKnowledgeBase(true)}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                <Database className="w-4 h-4 mr-2" />
+                Manage Knowledge Base
+              </Button>
+            </div>
+            
             <DomainSelector onSelect={setSelectedDomain} />
           </div>
         )}
 
-        {selectedDomain && !sessionData && (
+        {showKnowledgeBase && (
+          <div className="space-y-6">
+            <div className="flex items-center space-x-4">
+              <Button variant="ghost" size="sm" onClick={() => setShowKnowledgeBase(false)}>
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Domains
+              </Button>
+              <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                Knowledge Base Management
+              </Badge>
+            </div>
+            <KnowledgeBaseManager 
+              domain={selectedDomain || 'General'}
+              onDocumentsIndexed={(docs) => console.log('Documents indexed:', docs)}
+            />
+          </div>
+        )}
+
+        {selectedDomain && !sessionData && !showKnowledgeBase && (
           <div className="space-y-6">
             <div className="text-center">
               <h3 className="text-2xl font-bold text-gray-900 mb-2">
@@ -77,7 +108,7 @@ const Index = ({ user, onLogout }: IndexProps) => {
           </div>
         )}
 
-        {sessionData && !artifacts && (
+        {sessionData && !artifacts && !showKnowledgeBase && (
           <div className="space-y-6">
             <GenerationResults 
               sessionData={sessionData} 
@@ -87,7 +118,7 @@ const Index = ({ user, onLogout }: IndexProps) => {
           </div>
         )}
 
-        {artifacts && (
+        {artifacts && !showKnowledgeBase && (
           <div className="space-y-6">
             <DeploymentDashboard 
               artifacts={artifacts}
