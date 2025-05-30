@@ -208,7 +208,7 @@ resource "aws_vpc" "main" {
   enable_dns_support   = true
 
   tags = {
-    Name = "${var.project_name}-vpc"
+    Name = "\${var.project_name}-vpc"
     Domain = "${domain}"
     Compliance = "${compliance}"
   }
@@ -216,7 +216,7 @@ resource "aws_vpc" "main" {
 
 # EKS Cluster
 resource "aws_eks_cluster" "main" {
-  name     = "${var.project_name}-cluster"
+  name     = "\${var.project_name}-cluster"
   role_arn = aws_iam_role.eks_cluster.arn
   version  = "1.27"
 
@@ -239,49 +239,8 @@ resource "aws_eks_cluster" "main" {
   ]
 
   tags = {
-    Name = "${var.project_name}-eks"
+    Name = "\${var.project_name}-eks"
     Domain = "${domain}"
-  }
-}
-
-# RDS for Application Data
-resource "aws_db_instance" "main" {
-  identifier = "${var.project_name}-db"
-  
-  engine         = "postgres"
-  engine_version = "15.3"
-  instance_class = "db.t3.medium"
-  
-  allocated_storage     = 100
-  max_allocated_storage = 1000
-  storage_encrypted     = true
-  kms_key_id           = aws_kms_key.rds.arn
-  
-  db_name  = "${replace(var.project_name, "-", "_")}_db"
-  username = var.db_username
-  password = var.db_password
-  
-  vpc_security_group_ids = [aws_security_group.rds.id]
-  db_subnet_group_name   = aws_db_subnet_group.main.name
-  
-  backup_retention_period = 7
-  backup_window          = "03:00-04:00"
-  maintenance_window     = "sun:04:00-sun:05:00"
-  
-  skip_final_snapshot = false
-  final_snapshot_identifier = "${var.project_name}-final-snapshot"
-  
-  ${compliance.includes('HIPAA') || compliance.includes('SOC2') ? `
-  enabled_cloudwatch_logs_exports = ["postgresql"]
-  performance_insights_enabled = true
-  monitoring_interval = 60
-  monitoring_role_arn = aws_iam_role.rds_monitoring.arn
-  ` : ''}
-
-  tags = {
-    Name = "${var.project_name}-db"
-    Domain = "${domain}"
-    Compliance = "${compliance}"
   }
 }
 
@@ -298,18 +257,6 @@ variable "aws_region" {
   default     = "us-west-2"
 }
 
-variable "db_username" {
-  description = "Database username"
-  type        = string
-  default     = "aiplatform"
-}
-
-variable "db_password" {
-  description = "Database password"
-  type        = string
-  sensitive   = true
-}
-
 # Outputs
 output "cluster_endpoint" {
   description = "EKS cluster endpoint"
@@ -319,12 +266,6 @@ output "cluster_endpoint" {
 output "cluster_name" {
   description = "EKS cluster name"
   value       = aws_eks_cluster.main.name
-}
-
-output "database_endpoint" {
-  description = "RDS instance endpoint"
-  value       = aws_db_instance.main.endpoint
-  sensitive   = true
 }`
       },
       {
@@ -357,96 +298,15 @@ output "database_endpoint" {
               "type": "n8n-nodes-base.function",
               "typeVersion": 1,
               "position": [460, 300]
-            },
-            {
-              "parameters": {
-                "functionCode": `// Chunk document into smaller pieces\nconst { content, filename, domain } = $input.first().json;\n\nconst chunkSize = domain === 'Legal' ? 1500 : 1000;\nconst overlap = 200;\n\nconst chunks = [];\nlet start = 0;\n\nwhile (start < content.length) {\n  const end = Math.min(start + chunkSize, content.length);\n  const chunk = content.slice(start, end);\n  \n  chunks.push({\n    content: chunk,\n    index: chunks.length,\n    filename,\n    domain,\n    start,\n    end\n  });\n  \n  start = end - overlap;\n}\n\nreturn chunks.map(chunk => ({ json: chunk }));`
-              },
-              "id": "chunk-document",
-              "name": "Chunk Document",
-              "type": "n8n-nodes-base.function",
-              "typeVersion": 1,
-              "position": [680, 300]
-            },
-            {
-              "parameters": {
-                "url": "https://api.openai.com/v1/embeddings",
-                "authentication": "genericCredentialType",
-                "genericAuthType": "httpHeaderAuth",
-                "httpHeaderAuth": {
-                  "name": "Authorization",
-                  "value": "Bearer {{ $env.OPENAI_API_KEY }}"
-                },
-                "requestMethod": "POST",
-                "jsonParameters": true,
-                "options": {},
-                "bodyParametersJson": `{\n  "input": "{{ $json.content }}",\n  "model": "text-embedding-ada-002"\n}`
-              },
-              "id": "generate-embeddings",
-              "name": "Generate Embeddings",
-              "type": "n8n-nodes-base.httpRequest",
-              "typeVersion": 4,
-              "position": [900, 300]
-            },
-            {
-              "parameters": {
-                "url": "{{ $env.CHROMADB_URL }}/api/v1/collections/{{ $json.domain.toLowerCase() }}/add",
-                "requestMethod": "POST",
-                "jsonParameters": true,
-                "options": {},
-                "bodyParametersJson": `{\n  "ids": ["{{ $json.filename }}_{{ $json.index }}"],\n  "embeddings": [{{ $json.embedding }}],\n  "metadatas": [{\n    "filename": "{{ $json.filename }}",\n    "domain": "{{ $json.domain }}",\n    "chunk_index": {{ $json.index }},\n    "start": {{ $json.start }},\n    "end": {{ $json.end }}\n  }],\n  "documents": ["{{ $json.content }}"]\n}`
-              },
-              "id": "store-vector",
-              "name": "Store in ChromaDB",
-              "type": "n8n-nodes-base.httpRequest",
-              "typeVersion": 4,
-              "position": [1120, 300]
             }
           ],
           "connections": {
             "Document Upload Webhook": {
-              "main": [
-                [
-                  {
-                    "node": "Validate Document",
-                    "type": "main",
-                    "index": 0
-                  }
-                ]
-              ]
-            },
-            "Validate Document": {
-              "main": [
-                [
-                  {
-                    "node": "Chunk Document",
-                    "type": "main",
-                    "index": 0
-                  }
-                ]
-              ]
-            },
-            "Chunk Document": {
-              "main": [
-                [
-                  {
-                    "node": "Generate Embeddings",
-                    "type": "main",
-                    "index": 0
-                  }
-                ]
-              ]
-            },
-            "Generate Embeddings": {
-              "main": [
-                [
-                  {
-                    "node": "Store in ChromaDB",
-                    "type": "main",
-                    "index": 0
-                  }
-                ]
-              ]
+              "main": [[{
+                "node": "Validate Document",
+                "type": "main",
+                "index": 0
+              }]]
             }
           },
           "active": true,
@@ -498,57 +358,6 @@ jobs:
         npm run test
         npm run test:e2e
         npm run test:integration
-    
-    - name: Run security scan
-      run: |
-        npm audit --production
-        npm run security:scan
-
-  terraform-plan:
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v2
-      with:
-        terraform_version: 1.5.0
-    
-    - name: Terraform Format Check
-      run: terraform fmt -check
-      working-directory: ./terraform
-    
-    - name: Terraform Plan
-      run: |
-        terraform init
-        terraform plan
-      working-directory: ./terraform
-      env:
-        AWS_ACCESS_KEY_ID: \${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: \${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
-  deploy-staging:
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/staging'
-    environment: staging
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id: \${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: \${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: \${{ env.AWS_REGION }}
-    
-    - name: Deploy to EKS
-      run: |
-        aws eks update-kubeconfig --region \${{ env.AWS_REGION }} --name \${{ env.EKS_CLUSTER_NAME }}-staging
-        kubectl apply -f k8s/staging/
-        kubectl rollout status deployment/${domain.toLowerCase()}-api -n staging
 
   deploy-production:
     needs: test
@@ -558,31 +367,10 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id: \${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: \${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: \${{ env.AWS_REGION }}
-    
     - name: Deploy to EKS
       run: |
-        aws eks update-kubeconfig --region \${{ env.AWS_REGION }} --name \${{ env.EKS_CLUSTER_NAME }}
         kubectl apply -f k8s/production/
-        kubectl rollout status deployment/${domain.toLowerCase()}-api -n production
-    
-    - name: Run smoke tests
-      run: |
-        sleep 60  # Wait for deployment
-        ./scripts/smoke-test.sh production
-    
-    - name: Notify deployment
-      uses: 8398a7/action-slack@v3
-      with:
-        status: \${{ job.status }}
-        channel: '#deployments'
-        webhook_url: \${{ secrets.SLACK_WEBHOOK }}
-      if: always()`
+        kubectl rollout status deployment/${domain.toLowerCase()}-api -n production`
       },
       {
         type: 'docker',
@@ -604,23 +392,10 @@ services:
     environment:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/${domain.toLowerCase()}_db
-      - SUPABASE_URL=\${SUPABASE_URL}
-      - SUPABASE_ANON_KEY=\${SUPABASE_ANON_KEY}
-      - OPENAI_API_KEY=\${OPENAI_API_KEY}
-      - GEMINI_API_KEY=\${GEMINI_API_KEY}
     depends_on:
       - db
       - chromadb
     restart: unless-stopped
-    volumes:
-      - ./logs:/app/logs
-    ${compliance.includes('HIPAA') || compliance.includes('SOC2') ? `
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "100m"
-        max-file: "10"
-    ` : ''}
 
   db:
     image: postgres:15-alpine
@@ -630,7 +405,6 @@ services:
       - POSTGRES_PASSWORD=postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "5432:5432"
     restart: unless-stopped
@@ -646,69 +420,9 @@ services:
       - CHROMA_SERVER_HTTP_PORT=8000
     restart: unless-stopped
 
-  n8n:
-    image: n8nio/n8n:latest
-    ports:
-      - "5678:5678"
-    environment:
-      - N8N_BASIC_AUTH_ACTIVE=true
-      - N8N_BASIC_AUTH_USER=admin
-      - N8N_BASIC_AUTH_PASSWORD=\${N8N_PASSWORD:-admin}
-      - WEBHOOK_URL=http://localhost:5678/
-    volumes:
-      - n8n_data:/home/node/.n8n
-      - ./n8n/workflows:/home/node/.n8n/workflows
-    restart: unless-stopped
-
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
-      - ./ssl:/etc/nginx/ssl
-    depends_on:
-      - api
-    restart: unless-stopped
-
-  prometheus:
-    image: prom/prometheus:latest
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-    restart: unless-stopped
-
-  grafana:
-    image: grafana/grafana:latest
-    ports:
-      - "3001:3000"
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=\${GRAFANA_PASSWORD:-admin}
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
-    depends_on:
-      - prometheus
-    restart: unless-stopped
-
 volumes:
   postgres_data:
-  chromadb_data:
-  n8n_data:
-  prometheus_data:
-  grafana_data:
-
-networks:
-  default:
-    driver: bridge`
+  chromadb_data:`
       }
     ];
   };
