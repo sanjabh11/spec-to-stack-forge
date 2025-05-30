@@ -7,11 +7,22 @@ import { GenerationResults } from "@/components/GenerationResults";
 import { StatsOverview } from "@/components/StatsOverview";
 import { DeploymentDashboard } from "@/components/DeploymentDashboard";
 import { HealthCheck } from "@/components/HealthCheck";
+import { DocumentUpload } from "@/components/DocumentUpload";
+import { ObservabilityDashboard } from "@/components/ObservabilityDashboard";
+import { GitHubIntegration } from "@/components/GitHubIntegration";
 import { Button } from "@/components/ui/button";
-import { LogOut, User, Settings } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Database, ArrowLeft } from "lucide-react";
-import { KnowledgeBaseManager } from "@/components/KnowledgeBaseManager";
+import { 
+  LogOut, 
+  User, 
+  Settings, 
+  Database, 
+  ArrowLeft,
+  GitBranch,
+  BarChart3,
+  Upload
+} from "lucide-react";
 
 interface IndexProps {
   user: any;
@@ -22,8 +33,25 @@ const Index = ({ user, onLogout }: IndexProps) => {
   const [selectedDomain, setSelectedDomain] = useState("");
   const [sessionData, setSessionData] = useState(null);
   const [artifacts, setArtifacts] = useState(null);
-  const [showKnowledgeBase, setShowKnowledgeBase] = useState(false);
+  const [currentView, setCurrentView] = useState<'domains' | 'chat' | 'results' | 'deploy' | 'upload' | 'observability'>('domains');
   const [showHealthCheck, setShowHealthCheck] = useState(false);
+
+  const resetToStart = () => {
+    setSelectedDomain("");
+    setSessionData(null);
+    setArtifacts(null);
+    setCurrentView('domains');
+  };
+
+  const handleSessionComplete = (data: any) => {
+    setSessionData(data);
+    setCurrentView('results');
+  };
+
+  const handleArtifactsGenerated = (generatedArtifacts: any) => {
+    setArtifacts(generatedArtifacts);
+    setCurrentView('deploy');
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
@@ -38,6 +66,9 @@ const Index = ({ user, onLogout }: IndexProps) => {
             </div>
             <Badge variant="outline" className="ml-2">
               {user.role}
+            </Badge>
+            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+              {user.tenant_name}
             </Badge>
           </div>
           <div className="flex items-center space-x-2">
@@ -63,11 +94,39 @@ const Index = ({ user, onLogout }: IndexProps) => {
           </div>
         )}
         
-        {!selectedDomain && !showKnowledgeBase && (
+        {/* Navigation */}
+        {currentView !== 'domains' && (
+          <div className="flex items-center space-x-4">
+            <Button variant="ghost" size="sm" onClick={resetToStart}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Start Over
+            </Button>
+            <div className="flex space-x-2">
+              {selectedDomain && (
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                  {selectedDomain}
+                </Badge>
+              )}
+              {sessionData && (
+                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                  Requirements Complete
+                </Badge>
+              )}
+              {artifacts && (
+                <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                  Artifacts Generated
+                </Badge>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Main Content */}
+        {currentView === 'domains' && (
           <div className="text-center space-y-6">
             <div>
               <h2 className="text-3xl font-bold text-gray-900 mb-4">
-                🚀 AI Platform - Enterprise Solution Generator
+                🚀 AI Platform Advisor - Enterprise Solution Generator
               </h2>
               <p className="text-lg text-gray-600 max-w-2xl mx-auto">
                 Generate complete AI solutions with architecture, infrastructure, and deployment automation.
@@ -77,73 +136,113 @@ const Index = ({ user, onLogout }: IndexProps) => {
             
             <div className="flex justify-center space-x-4 mb-6">
               <Button 
-                onClick={() => setShowKnowledgeBase(true)}
+                onClick={() => setCurrentView('upload')}
                 className="bg-purple-600 hover:bg-purple-700"
               >
-                <Database className="w-4 h-4 mr-2" />
-                Manage Knowledge Base
+                <Upload className="w-4 h-4 mr-2" />
+                Upload Documents
+              </Button>
+              <Button 
+                onClick={() => setCurrentView('observability')}
+                variant="outline"
+                className="border-orange-200 text-orange-700 hover:bg-orange-50"
+              >
+                <BarChart3 className="w-4 h-4 mr-2" />
+                View Analytics
               </Button>
             </div>
             
-            <DomainSelector onSelect={setSelectedDomain} />
+            <DomainSelector 
+              onSelect={(domain) => {
+                setSelectedDomain(domain);
+                setCurrentView('chat');
+              }} 
+            />
           </div>
         )}
 
-        {showKnowledgeBase && (
+        {currentView === 'chat' && selectedDomain && (
+          <ChatInterface 
+            domain={selectedDomain} 
+            onSessionComplete={handleSessionComplete}
+          />
+        )}
+
+        {currentView === 'results' && sessionData && (
+          <GenerationResults 
+            sessionData={sessionData} 
+            domain={selectedDomain}
+            onArtifactsGenerated={handleArtifactsGenerated}
+          />
+        )}
+
+        {currentView === 'deploy' && artifacts && sessionData && (
+          <Tabs defaultValue="deployment" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="deployment">Deployment</TabsTrigger>
+              <TabsTrigger value="github">GitHub Integration</TabsTrigger>
+              <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="deployment">
+              <DeploymentDashboard 
+                artifacts={artifacts}
+                sessionData={sessionData}
+                domain={selectedDomain}
+              />
+            </TabsContent>
+            
+            <TabsContent value="github">
+              <GitHubIntegration 
+                artifacts={artifacts}
+                sessionData={sessionData}
+                domain={selectedDomain}
+              />
+            </TabsContent>
+            
+            <TabsContent value="monitoring">
+              <ObservabilityDashboard />
+            </TabsContent>
+          </Tabs>
+        )}
+
+        {currentView === 'upload' && (
           <div className="space-y-6">
             <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm" onClick={() => setShowKnowledgeBase(false)}>
+              <Button variant="ghost" size="sm" onClick={() => setCurrentView('domains')}>
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Domains
               </Button>
               <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                Knowledge Base Management
+                Document Upload & Ingestion
               </Badge>
             </div>
-            <KnowledgeBaseManager 
+            <DocumentUpload 
               domain={selectedDomain || 'General'}
-              onDocumentsIndexed={(docs) => console.log('Documents indexed:', docs)}
+              onUploadComplete={(docs) => {
+                console.log('Documents uploaded:', docs);
+                // Optionally redirect back to domains or show success
+              }}
             />
           </div>
         )}
 
-        {selectedDomain && !sessionData && !showKnowledgeBase && (
+        {currentView === 'observability' && (
           <div className="space-y-6">
-            <div className="text-center">
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                🎯 {selectedDomain} AI Solution
-              </h3>
-              <p className="text-gray-600">
-                Let's start gathering your requirements for the {selectedDomain.toLowerCase()} AI solution.
-              </p>
+            <div className="flex items-center space-x-4">
+              <Button variant="ghost" size="sm" onClick={() => setCurrentView('domains')}>
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Dashboard
+              </Button>
+              <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                Observability & Analytics
+              </Badge>
             </div>
-            <ChatInterface 
-              domain={selectedDomain} 
-              onSessionComplete={setSessionData}
-            />
+            <ObservabilityDashboard />
           </div>
         )}
 
-        {sessionData && !artifacts && !showKnowledgeBase && (
-          <div className="space-y-6">
-            <GenerationResults 
-              sessionData={sessionData} 
-              domain={selectedDomain}
-              onArtifactsGenerated={setArtifacts}
-            />
-          </div>
-        )}
-
-        {artifacts && !showKnowledgeBase && (
-          <div className="space-y-6">
-            <DeploymentDashboard 
-              artifacts={artifacts}
-              sessionData={sessionData}
-              domain={selectedDomain}
-            />
-          </div>
-        )}
-
+        {/* Always show stats at the bottom */}
         <StatsOverview />
       </div>
     </div>
