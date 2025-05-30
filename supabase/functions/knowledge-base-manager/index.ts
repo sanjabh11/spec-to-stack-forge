@@ -19,18 +19,22 @@ serve(async (req) => {
   }
 
   try {
-    const { action, domain, documentId } = await req.json();
+    const { action, ...params } = await req.json();
 
     switch (action) {
       case 'list-documents':
-        return await listDocuments(domain);
+        return await listDocuments(params.domain);
+      
       case 'get-progress':
-        return await getProgress(documentId);
+        return await getProgress(params.documentId);
+      
       case 'delete-document':
-        return await deleteDocument(documentId);
+        return await deleteDocument(params.documentId);
+        
       default:
         throw new Error(`Unknown action: ${action}`);
     }
+
   } catch (error) {
     console.error('Knowledge base manager error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
@@ -49,20 +53,9 @@ async function listDocuments(domain: string) {
 
   if (error) throw error;
 
-  const formattedDocs = documents?.map(doc => ({
-    id: doc.id,
-    name: doc.name,
-    type: doc.type,
-    size: doc.size,
-    status: doc.status,
-    chunks: doc.chunks_count || 0,
-    embeddings: doc.embeddings_count || 0,
-    uploaded_at: doc.created_at
-  })) || [];
-
   return new Response(JSON.stringify({
     success: true,
-    documents: formattedDocs
+    documents: documents || []
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   });
@@ -80,7 +73,7 @@ async function getProgress(documentId: string) {
   return new Response(JSON.stringify({
     success: true,
     progress: document?.processing_progress || 0,
-    status: document?.status
+    status: document?.status || 'processing'
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   });
@@ -88,18 +81,20 @@ async function getProgress(documentId: string) {
 
 async function deleteDocument(documentId: string) {
   // Delete chunks first
-  await supabase
+  const { error: chunksError } = await supabase
     .from('knowledge_chunks')
     .delete()
     .eq('document_id', documentId);
 
+  if (chunksError) throw chunksError;
+
   // Delete document
-  const { error } = await supabase
+  const { error: docError } = await supabase
     .from('knowledge_documents')
     .delete()
     .eq('id', documentId);
 
-  if (error) throw error;
+  if (docError) throw docError;
 
   return new Response(JSON.stringify({
     success: true,

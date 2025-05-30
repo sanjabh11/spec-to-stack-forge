@@ -1,26 +1,13 @@
-import { useState, useRef, useEffect } from 'react';
+
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
-import { 
-  Send, 
-  Bot, 
-  User, 
-  AlertCircle, 
-  CheckCircle2, 
-  Lightbulb,
-  ArrowLeft,
-  Clock,
-  Target,
-  Shield,
-  Zap,
-  Settings,
-  Loader2
-} from 'lucide-react';
-import { toast } from '@/hooks/use-toast';
+import { Progress } from '@/components/ui/progress';
+import { MessageCircle, Send, SkipForward, Lightbulb, RotateCcw, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { GenerationResults } from './GenerationResults';
+import { toast } from '@/hooks/use-toast';
 
 interface ChatInterfaceProps {
   domain: string;
@@ -29,81 +16,90 @@ interface ChatInterfaceProps {
 
 interface Message {
   id: string;
-  type: 'user' | 'assistant' | 'system';
+  type: 'question' | 'answer' | 'suggestion';
   content: string;
   timestamp: Date;
-  validation?: {
-    status: 'valid' | 'warning' | 'error';
-    message: string;
-    suggestions?: string[];
-  };
-  contradiction?: {
-    detected: boolean;
-    message?: string;
-  };
 }
 
-interface SessionData {
-  objective?: string;
-  data_sources?: string;
-  performance?: string;
-  compliance?: string;
-  budget?: string;
-  llm_provider?: string;
-}
+const domainQuestions = {
+  'Legal': [
+    "What specific legal problem are you trying to solve? (e.g., contract analysis, compliance monitoring, legal research)",
+    "What data sources will your legal AI solution need to work with? (e.g., contract databases, legal documents, case law APIs)",
+    "What are your performance requirements? Please specify expected document processing volume, concurrent users, and response time targets.",
+    "Do you have compliance requirements? (e.g., attorney-client privilege, GDPR, data retention policies)",
+    "What's your preferred budget range for cloud infrastructure and LLM API costs per month?"
+  ],
+  'Finance': [
+    "What specific financial problem are you trying to solve? (e.g., risk assessment, fraud detection, financial planning)",
+    "What data sources will your financial AI solution need to work with? (e.g., transaction databases, market data APIs, financial statements)",
+    "What are your performance requirements? Please specify expected transaction volume, concurrent users, and response time targets.",
+    "Do you have regulatory compliance requirements? (e.g., PCI-DSS, SOX, Basel III, MiFID II)",
+    "What's your preferred budget range for cloud infrastructure and LLM API costs per month?"
+  ],
+  'Healthcare': [
+    "What specific healthcare problem are you trying to solve? Please specify if this is for EMR systems, clinical trials, diagnostics, or patient management.",
+    "What data sources will your healthcare AI solution need to work with? (e.g., EMR systems, medical devices, lab results, imaging data)",
+    "What are your performance requirements? Please specify expected patient records processed, concurrent users, and response time targets.",
+    "Do you have healthcare compliance requirements? (e.g., HIPAA, HITECH, FDA 21 CFR Part 11, GDPR for EU patients)",
+    "What's your preferred budget range for cloud infrastructure and LLM API costs per month?"
+  ],
+  'Human Resources': [
+    "What specific HR challenge are you trying to solve? (e.g., recruitment automation, performance analysis, employee engagement)",
+    "What data sources will your HR AI solution need to work with? (e.g., HRIS systems, applicant tracking, performance data)",
+    "What are your performance requirements? Please specify expected employee records processed, concurrent users, and response time targets.",
+    "Do you have HR compliance requirements? (e.g., GDPR for employee data, equal employment opportunity, data retention policies)",
+    "What's your preferred budget range for cloud infrastructure and LLM API costs per month?"
+  ],
+  'Customer Support': [
+    "What specific customer support problem are you trying to solve? (e.g., ticket automation, sentiment analysis, knowledge base)",
+    "What data sources will your support AI solution need to work with? (e.g., ticket systems, customer databases, chat logs)",
+    "What are your performance requirements? Please specify expected ticket volume, concurrent users, and response time targets.",
+    "Do you have customer data compliance requirements? (e.g., GDPR, CCPA, data retention policies)",
+    "What's your preferred budget range for cloud infrastructure and LLM API costs per month?"
+  ]
+};
 
 export const ChatInterface = ({ domain, onSessionComplete }: ChatInterfaceProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentInput, setCurrentInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [sessionId, setSessionId] = useState<string>('');
-  const [sessionData, setSessionData] = useState<SessionData>({});
-  const [llmProvider, setLlmProvider] = useState<string>('gemini');
-  const [isComplete, setIsComplete] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedArtifacts, setGeneratedArtifacts] = useState<any>(null);
-  const [showResults, setShowResults] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [sessionData, setSessionData] = useState<any>({});
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const questions = domainQuestions[domain as keyof typeof domainQuestions] || domainQuestions['Legal'];
+  const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
 
   useEffect(() => {
-    initializeSession();
+    startSession();
   }, [domain]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  const initializeSession = async () => {
+  const startSession = async () => {
     try {
       const { data, error } = await supabase.functions.invoke('start-requirement-session', {
-        body: { domain: domain }
+        body: { domain }
       });
 
       if (error) throw error;
 
       setSessionId(data.sessionId);
       
-      const welcomeMessage: Message = {
-        id: '1',
-        type: 'assistant',
-        content: `Welcome to the AI Platform Advisor! I'm here to help you design and generate a complete AI solution for your ${domain} needs. I'll ask you a series of questions to understand your requirements, validate them in real-time, and then generate production-ready code and infrastructure.`,
+      // Add first question
+      const firstMessage: Message = {
+        id: Date.now().toString(),
+        type: 'question',
+        content: questions[0],
         timestamp: new Date()
       };
-
-      const firstQuestion: Message = {
-        id: '2',
-        type: 'assistant',
-        content: data.firstQuestion.question,
-        timestamp: new Date()
-      };
-
-      setMessages([welcomeMessage, firstQuestion]);
-    } catch (error) {
-      console.error('Failed to initialize session:', error);
+      
+      setMessages([firstMessage]);
+    } catch (error: any) {
+      console.error('Failed to start session:', error);
       toast({
         title: "Session Error",
-        description: "Failed to start requirement session. Please try again.",
+        description: "Failed to start requirement session",
         variant: "destructive"
       });
     }
@@ -112,31 +108,26 @@ export const ChatInterface = ({ domain, onSessionComplete }: ChatInterfaceProps)
   const handleSendMessage = async () => {
     if (!currentInput.trim() || !sessionId) return;
 
-    // Check if user wants to generate
-    if (isComplete && currentInput.toLowerCase().includes('generate')) {
-      await handleGeneration();
-      return;
-    }
-
+    setIsLoading(true);
+    
+    // Add user message
     const userMessage: Message = {
       id: Date.now().toString(),
-      type: 'user',
+      type: 'answer',
       content: currentInput,
       timestamp: new Date()
     };
-
+    
     setMessages(prev => [...prev, userMessage]);
-    setCurrentInput('');
-    setIsTyping(true);
 
     try {
       const { data, error } = await supabase.functions.invoke('process-requirement', {
         body: {
           sessionId,
           userResponse: currentInput,
-          currentQuestion,
-          domain: domain,
-          llmProvider
+          currentQuestion: currentQuestionIndex,
+          domain,
+          llmProvider: 'gemini'
         }
       });
 
@@ -145,359 +136,243 @@ export const ChatInterface = ({ domain, onSessionComplete }: ChatInterfaceProps)
       // Update session data
       setSessionData(data.sessionData);
 
-      let responseContent = '';
-
-      // Handle validation feedback
-      if (data.validation.valid) {
-        responseContent = `✅ ${data.validation.message}`;
+      // Handle validation
+      if (!data.validation.valid) {
+        setSuggestions(data.validation.suggestions || []);
+        setShowSuggestions(true);
+        
+        toast({
+          title: "Response needs improvement",
+          description: data.validation.message,
+          variant: "destructive"
+        });
       } else {
-        responseContent = `⚠️ ${data.validation.message}`;
-        if (data.validation.suggestions && data.validation.suggestions.length > 0) {
-          responseContent += `\n\nSuggestions:\n${data.validation.suggestions.map((s: string) => `• ${s}`).join('\n')}`;
+        setShowSuggestions(false);
+        
+        // Check if complete
+        if (data.isComplete) {
+          onSessionComplete(data.sessionData);
+        } else if (data.nextQuestion) {
+          // Add next question
+          const nextMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            type: 'question',
+            content: data.nextQuestion.question,
+            timestamp: new Date()
+          };
+          
+          setMessages(prev => [...prev, nextMessage]);
+          setCurrentQuestionIndex(prev => prev + 1);
         }
       }
 
-      // Handle contradiction detection
-      if (data.contradiction.detected) {
-        responseContent += `\n\n🚨 **Potential Contradiction Detected:**\n${data.contradiction.message}`;
-        
-        const contradictionMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          type: 'assistant',
-          content: responseContent,
-          timestamp: new Date(),
-          validation: data.validation,
-          contradiction: data.contradiction
-        };
-        
-        setMessages(prev => [...prev, contradictionMessage]);
-        setIsTyping(false);
-        return;
-      }
-
-      // Check if complete
-      if (data.isComplete) {
-        setIsComplete(true);
-        responseContent += `\n\n🎉 **Requirements Complete!** I have all the information needed to generate your AI solution architecture. 
-
-I will now generate:
-• **Architecture Blueprint** (YAML) - System design and service specifications
-• **Infrastructure as Code** (Terraform) - Cloud resource provisioning
-• **Workflow Automation** (n8n) - Data processing and AI pipelines  
-• **CI/CD Templates** (GitHub Actions) - Automated deployment pipelines
-
-Type **"generate"** to start the automated generation process!`;
-
+      // Handle contradictions
+      if (data.contradiction && data.contradiction.detected) {
         toast({
-          title: "Requirements Complete!",
-          description: "Your specifications have been validated and are ready for generation.",
+          title: "Potential Contradiction Detected",
+          description: data.contradiction.message,
+          variant: "destructive"
         });
-        
-        // Call the onSessionComplete callback
-        onSessionComplete(data.sessionData);
-      } else if (data.nextQuestion) {
-        setCurrentQuestion(prev => prev + 1);
-        responseContent += `\n\n${data.nextQuestion.question}`;
       }
 
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        type: 'assistant',
-        content: responseContent,
-        timestamp: new Date(),
-        validation: data.validation
-      };
-
-      setMessages(prev => [...prev, assistantMessage]);
-
-    } catch (error) {
-      console.error('Failed to process requirement:', error);
+    } catch (error: any) {
+      console.error('Failed to process response:', error);
       toast({
         title: "Processing Error",
-        description: "Failed to process your response. Please try again.",
+        description: "Failed to process your response",
         variant: "destructive"
       });
-      
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        type: 'system',
-        content: 'Sorry, there was an error processing your response. Please try again.',
-        timestamp: new Date()
-      };
-      
-      setMessages(prev => [...prev, errorMessage]);
     } finally {
-      setIsTyping(false);
+      setIsLoading(false);
+      setCurrentInput('');
     }
   };
 
-  const handleGeneration = async () => {
-    setIsGenerating(true);
-    setCurrentInput('');
+  const handleSkipQuestion = () => {
+    if (currentQuestionIndex < questions.length - 1) {
+      const nextMessage: Message = {
+        id: Date.now().toString(),
+        type: 'question',
+        content: questions[currentQuestionIndex + 1],
+        timestamp: new Date()
+      };
+      
+      setMessages(prev => [...prev, nextMessage]);
+      setCurrentQuestionIndex(prev => prev + 1);
+      setShowSuggestions(false);
+    } else {
+      // Complete session with current data
+      onSessionComplete(sessionData);
+    }
+  };
+
+  const handleImproveQuestion = () => {
+    const currentQuestion = questions[currentQuestionIndex];
+    const simplifiedQuestion = `Let me simplify: ${currentQuestion.split('(')[0].trim()}?`;
     
-    const generationMessage: Message = {
+    const simplifiedMessage: Message = {
       id: Date.now().toString(),
-      type: 'system',
-      content: '🚀 Starting automated generation process...\n\n• Step 1: Generating architecture blueprint\n• Step 2: Creating Terraform modules\n• Step 3: Building n8n workflows\n• Step 4: Setting up CI/CD templates\n\nThis may take a few moments...',
+      type: 'suggestion',
+      content: simplifiedQuestion,
       timestamp: new Date()
     };
     
-    setMessages(prev => [...prev, generationMessage]);
-
-    try {
-      const { data, error } = await supabase.functions.invoke('generate-architecture', {
-        body: {
-          sessionId,
-          sessionData,
-          domain: domain,
-          llmProvider
-        }
-      });
-
-      if (error) throw error;
-
-      setGeneratedArtifacts(data.artifacts);
-      setShowResults(true);
-
-      const successMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        type: 'system',
-        content: `✅ **Generation Complete!**\n\nYour ${domain} AI solution has been successfully generated! You can now review and download all artifacts below.`,
-        timestamp: new Date()
-      };
-
-      setMessages(prev => [...prev, successMessage]);
-
-      toast({
-        title: "Generation Complete!",
-        description: "Your AI solution architecture has been generated successfully.",
-      });
-
-    } catch (error) {
-      console.error('Failed to generate architecture:', error);
-      toast({
-        title: "Generation Error",
-        description: "Failed to generate architecture. Please try again.",
-        variant: "destructive"
-      });
-      
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        type: 'system',
-        content: 'Sorry, there was an error during generation. Please try again.',
-        timestamp: new Date()
-      };
-      
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setIsGenerating(false);
-    }
+    setMessages(prev => [...prev, simplifiedMessage]);
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
+  const handleUseSuggestion = (suggestion: string) => {
+    setCurrentInput(suggestion);
+    setShowSuggestions(false);
   };
 
-  const getMessageIcon = (message: Message) => {
-    if (message.type === 'user') return <User className="w-5 h-5" />;
-    if (message.type === 'system') return <CheckCircle2 className="w-5 h-5" />;
-    return <Bot className="w-5 h-5" />;
+  const handleClearSession = () => {
+    setMessages([]);
+    setCurrentQuestionIndex(0);
+    setSessionData({});
+    setSuggestions([]);
+    setShowSuggestions(false);
+    startSession();
   };
-
-  const getValidationIcon = (status: string) => {
-    switch (status) {
-      case 'valid': return <CheckCircle2 className="w-4 h-4 text-green-500" />;
-      case 'warning': return <AlertCircle className="w-4 h-4 text-yellow-500" />;
-      case 'error': return <AlertCircle className="w-4 h-4 text-red-500" />;
-      default: return null;
-    }
-  };
-
-  const totalQuestions = 5;
-  const progress = Math.round(((currentQuestion + 1) / totalQuestions) * 100);
-
-  if (showResults && generatedArtifacts) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center space-x-4">
-          <Button variant="ghost" size="sm" onClick={() => setShowResults(false)}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Chat
-          </Button>
-          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-            {domain} - Generated
-          </Badge>
-        </div>
-        <GenerationResults 
-          artifacts={generatedArtifacts} 
-          sessionData={sessionData} 
-          domain={domain}
-          onArtifactsGenerated={setGeneratedArtifacts}
-        />
-      </div>
-    );
-  }
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 mb-6 border border-gray-200">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="sm" onClick={() => window.location.reload()}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Domains
-            </Button>
-            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-              {domain}
-            </Badge>
+    <div className="max-w-4xl mx-auto space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center space-x-2">
+              <MessageCircle className="w-5 h-5" />
+              <span>Requirements Capture - {domain}</span>
+            </CardTitle>
             <div className="flex items-center space-x-2">
-              <Settings className="w-4 h-4" />
-              <select 
-                value={llmProvider} 
-                onChange={(e) => setLlmProvider(e.target.value)}
-                className="text-sm border rounded px-2 py-1"
-              >
-                <option value="gemini">Gemini 2.5 Pro</option>
-                <option value="gpt4">GPT-4</option>
-                <option value="claude">Claude</option>
-              </select>
+              <Badge variant="outline">{currentQuestionIndex + 1} of {questions.length}</Badge>
+              <Button variant="ghost" size="sm" onClick={handleClearSession}>
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Clear
+              </Button>
             </div>
           </div>
-          
-          <div className="flex items-center space-x-6 text-sm text-gray-600">
-            <div className="flex items-center space-x-2">
-              <Target className="w-4 h-4" />
-              <span>Question {currentQuestion + 1}/{totalQuestions}</span>
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm text-gray-600">
+              <span>Progress</span>
+              <span>{Math.round(progress)}%</span>
             </div>
-            <div className="flex items-center space-x-2">
-              <Clock className="w-4 h-4" />
-              <span>Progress: {progress}%</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Shield className="w-4 h-4" />
-              <span>Validated</span>
-            </div>
+            <Progress value={progress} className="w-full" />
           </div>
-        </div>
-      </div>
-
-      {/* Chat Messages */}
-      <Card className="bg-white/60 backdrop-blur-sm border border-gray-200 mb-6">
-        <CardContent className="p-6">
-          <div className="space-y-6 max-h-96 overflow-y-auto">
+        </CardHeader>
+        
+        <CardContent className="space-y-6">
+          {/* Chat Messages */}
+          <div className="space-y-4 max-h-96 overflow-y-auto">
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex items-start space-x-3 ${
-                  message.type === 'user' ? 'flex-row-reverse space-x-reverse' : ''
-                }`}
+                className={`flex ${message.type === 'answer' ? 'justify-end' : 'justify-start'}`}
               >
-                <div className={`p-2 rounded-xl ${
-                  message.type === 'user' 
-                    ? 'bg-blue-500 text-white' 
-                    : message.type === 'system'
-                    ? 'bg-green-500 text-white'
-                    : 'bg-gray-100 text-gray-700'
-                }`}>
-                  {getMessageIcon(message)}
-                </div>
-                
-                <div className={`flex-1 ${message.type === 'user' ? 'text-right' : ''}`}>
-                  <div className={`inline-block max-w-xs lg:max-w-md xl:max-w-lg p-4 rounded-2xl ${
-                    message.type === 'user'
-                      ? 'bg-blue-500 text-white'
-                      : message.type === 'system'
-                      ? 'bg-green-50 text-green-800 border border-green-200'
-                      : message.contradiction?.detected
-                      ? 'bg-red-50 text-red-800 border border-red-200'
-                      : 'bg-gray-50 text-gray-800'
-                  }`}>
-                    <p className="whitespace-pre-wrap">{message.content}</p>
-                    
-                    {message.validation && (
-                      <div className="flex items-center space-x-2 mt-2 pt-2 border-t border-current/20">
-                        {getValidationIcon(message.validation.status)}
-                        <span className="text-xs opacity-80">{message.validation.message}</span>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="text-xs text-gray-500 mt-1">
+                <div
+                  className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                    message.type === 'answer'
+                      ? 'bg-blue-600 text-white'
+                      : message.type === 'suggestion'
+                      ? 'bg-yellow-50 text-yellow-800 border border-yellow-200'
+                      : 'bg-gray-100 text-gray-800'
+                  }`}
+                >
+                  <p className="text-sm">{message.content}</p>
+                  <span className="text-xs opacity-70">
                     {message.timestamp.toLocaleTimeString()}
-                  </div>
+                  </span>
                 </div>
               </div>
             ))}
-            
-            {(isTyping || isGenerating) && (
-              <div className="flex items-start space-x-3">
-                <div className="p-2 rounded-xl bg-gray-100 text-gray-700">
-                  {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Bot className="w-5 h-5" />}
-                </div>
-                <div className="bg-gray-50 text-gray-800 p-4 rounded-2xl">
-                  <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            <div ref={messagesEndRef} />
           </div>
+
+          {/* Suggestions */}
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-gray-700">Suggestions to improve your answer:</p>
+              <div className="space-y-2">
+                {suggestions.map((suggestion, index) => (
+                  <div
+                    key={index}
+                    className="p-3 bg-blue-50 border border-blue-200 rounded-lg cursor-pointer hover:bg-blue-100"
+                    onClick={() => handleUseSuggestion(suggestion)}
+                  >
+                    <p className="text-sm text-blue-800">{suggestion}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Input Area */}
+          <div className="space-y-4">
+            <Textarea
+              value={currentInput}
+              onChange={(e) => setCurrentInput(e.target.value)}
+              placeholder="Type your response here..."
+              className="min-h-[100px]"
+              onKeyPress={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage();
+                }
+              }}
+            />
+            
+            <div className="flex justify-between">
+              <div className="flex space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSkipQuestion}
+                  disabled={isLoading}
+                >
+                  <SkipForward className="w-4 h-4 mr-2" />
+                  Skip
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleImproveQuestion}
+                  disabled={isLoading}
+                >
+                  <Lightbulb className="w-4 h-4 mr-2" />
+                  Simplify Question
+                </Button>
+              </div>
+              
+              <Button
+                onClick={handleSendMessage}
+                disabled={!currentInput.trim() || isLoading}
+              >
+                {isLoading ? (
+                  <>Processing...</>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4 mr-2" />
+                    Send
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {/* Session Summary */}
+          {Object.keys(sessionData).length > 0 && (
+            <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+              <h3 className="font-medium mb-2">Session Summary</h3>
+              <div className="space-y-1 text-sm text-gray-600">
+                {Object.entries(sessionData).map(([key, value]) => (
+                  <div key={key} className="flex justify-between">
+                    <span className="capitalize">{key.replace('_', ' ')}:</span>
+                    <span className="font-medium">{String(value).slice(0, 50)}...</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
-
-      {/* Input Area */}
-      <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 border border-gray-200">
-        <div className="flex space-x-4">
-          <Input
-            value={currentInput}
-            onChange={(e) => setCurrentInput(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder={
-              isComplete 
-                ? "Type 'generate' to start generation..." 
-                : isGenerating 
-                ? "Generating..." 
-                : "Type your response..."
-            }
-            className="flex-1 bg-white/50"
-            disabled={isTyping || isGenerating}
-          />
-          <Button 
-            onClick={handleSendMessage}
-            disabled={!currentInput.trim() || isTyping || isGenerating}
-            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
-          >
-            {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-          </Button>
-        </div>
-        
-        <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
-          <div className="flex space-x-2">
-            <Button variant="ghost" size="sm">
-              <Lightbulb className="w-4 h-4 mr-2" />
-              Simplify
-            </Button>
-            <Button variant="ghost" size="sm">
-              Skip Question
-            </Button>
-            <Button variant="ghost" size="sm">
-              Not Clear
-            </Button>
-          </div>
-          
-          <div className="text-sm text-gray-500">
-            LLM: {llmProvider.charAt(0).toUpperCase() + llmProvider.slice(1)} • Progress: {progress}%
-          </div>
-        </div>
-      </div>
     </div>
   );
 };
