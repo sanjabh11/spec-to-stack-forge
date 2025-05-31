@@ -10,6 +10,7 @@ import NotFound from "./pages/NotFound";
 import Builder from "./pages/Builder";
 import PlatformBuilder from "./pages/PlatformBuilder";
 import CostEstimatorPage from "./pages/CostEstimatorPage";
+import AdminPage from "./pages/AdminPage";
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AuthPage } from '@/components/AuthPage';
 
@@ -73,6 +74,7 @@ const App = () => {
                 <Route path="/builder" element={<Builder user={user} onLogout={handleLogout} />} />
                 <Route path="/platform-builder" element={<PlatformBuilder />} />
                 <Route path="/cost-estimator" element={<CostEstimatorPage />} />
+                <Route path="/admin" element={<AdminPage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>

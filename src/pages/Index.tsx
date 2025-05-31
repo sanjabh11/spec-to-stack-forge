@@ -12,6 +12,7 @@ import { GitHubIntegration } from "@/components/GitHubIntegration";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   LogOut, 
   User, 
@@ -21,7 +22,11 @@ import {
   GitBranch,
   BarChart3,
   Upload,
-  DollarSign
+  DollarSign,
+  Zap,
+  Brain,
+  Shield,
+  Cpu
 } from "lucide-react";
 
 interface IndexProps {
@@ -138,20 +143,47 @@ const Index = ({ user, onLogout }: IndexProps) => {
               </p>
             </div>
             
-            <div className="flex justify-center space-x-4 mb-6">
-              <Button 
-                onClick={() => setCurrentView('upload')}
-                className="bg-purple-600 hover:bg-purple-700"
-              >
-                <Database className="w-4 h-4 mr-2" />
-                Manage Knowledge Base
-              </Button>
-              <Button
-                onClick={() => window.location.href = '/builder'}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                🛠️ Open Builder
-              </Button>
+            {/* Quick Actions Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-6xl mx-auto mb-8">
+              <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => window.location.href = '/cost-estimator'}>
+                <CardHeader className="text-center pb-3">
+                  <DollarSign className="w-8 h-8 mx-auto text-green-600 mb-2" />
+                  <CardTitle className="text-lg">Cost Estimator</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600">Calculate deployment costs and ROI for your AI platform</p>
+                </CardContent>
+              </Card>
+
+              <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => window.location.href = '/platform-builder'}>
+                <CardHeader className="text-center pb-3">
+                  <Zap className="w-8 h-8 mx-auto text-blue-600 mb-2" />
+                  <CardTitle className="text-lg">Platform Builder</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600">Build complete AI platforms with guided workflows</p>
+                </CardContent>
+              </Card>
+
+              <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setCurrentView('upload')}>
+                <CardHeader className="text-center pb-3">
+                  <Database className="w-8 h-8 mx-auto text-purple-600 mb-2" />
+                  <CardTitle className="text-lg">Knowledge Base</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600">Upload and manage documents for RAG</p>
+                </CardContent>
+              </Card>
+
+              <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setCurrentView('observability')}>
+                <CardHeader className="text-center pb-3">
+                  <BarChart3 className="w-8 h-8 mx-auto text-orange-600 mb-2" />
+                  <CardTitle className="text-lg">Analytics</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600">Monitor performance and usage metrics</p>
+                </CardContent>
+              </Card>
             </div>
             
             <DomainSelector 
