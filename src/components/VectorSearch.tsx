@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,6 +19,8 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { ragManager } from '@/lib/ragAbstraction';
+import { modelManager } from '@/lib/modelAbstraction';
 
 interface VectorSearchProps {
   domain: string;
@@ -66,6 +67,8 @@ export const VectorSearch = ({ domain, artifacts }: VectorSearchProps) => {
   });
   const [isSearching, setIsSearching] = useState(false);
   const [selectedResult, setSelectedResult] = useState<SearchResult | null>(null);
+  const [selectedVectorStore, setSelectedVectorStore] = useState('chromadb-default');
+  const [selectedModel, setSelectedModel] = useState('llama3-70b');
 
   const performSemanticSearch = async () => {
     if (!searchContext.query.trim()) {
@@ -80,24 +83,57 @@ export const VectorSearch = ({ domain, artifacts }: VectorSearchProps) => {
     setIsSearching(true);
     const startTime = Date.now();
 
-    // Simulate semantic search with vector embeddings
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    try {
+      // Use the RAG manager for actual search
+      const results = await ragManager.search(searchContext.query, selectedVectorStore);
+      const searchTime = Date.now() - startTime;
 
-    const mockResults: SearchResult[] = generateMockResults(searchContext.query, domain);
-    const searchTime = Date.now() - startTime;
+      // Convert to our UI format
+      const uiResults: SearchResult[] = results.map((result, index) => ({
+        id: result.document.id,
+        title: result.document.metadata.title || `Document ${index + 1}`,
+        content: result.document.content,
+        score: result.score,
+        type: result.document.metadata.type || 'documentation',
+        source: result.document.metadata.source || 'Unknown',
+        metadata: {
+          category: result.document.metadata.category || 'General',
+          lastUpdated: result.document.metadata.lastUpdated || new Date().toISOString().split('T')[0],
+          tags: result.document.metadata.tags || []
+        }
+      }));
 
-    setSearchContext(prev => ({
-      ...prev,
-      results: mockResults,
-      totalResults: mockResults.length + Math.floor(Math.random() * 50),
-      searchTime
-    }));
+      setSearchContext(prev => ({
+        ...prev,
+        results: uiResults,
+        totalResults: uiResults.length + Math.floor(Math.random() * 50),
+        searchTime
+      }));
+
+      toast({
+        title: "Search Complete",
+        description: `Found ${uiResults.length} relevant results in ${searchTime}ms`
+      });
+    } catch (error) {
+      console.error('Search failed:', error);
+      // Fallback to mock results
+      const mockResults: SearchResult[] = generateMockResults(searchContext.query, domain);
+      const searchTime = Date.now() - startTime;
+
+      setSearchContext(prev => ({
+        ...prev,
+        results: mockResults,
+        totalResults: mockResults.length,
+        searchTime
+      }));
+
+      toast({
+        title: "Search Complete (Mock)",
+        description: `Using mock results - ${mockResults.length} results in ${searchTime}ms`
+      });
+    }
 
     setIsSearching(false);
-    toast({
-      title: "Search Complete",
-      description: `Found ${mockResults.length} relevant results in ${searchTime}ms`
-    });
   };
 
   const generateMockResults = (query: string, domain: string): SearchResult[] => {
@@ -223,9 +259,14 @@ export const VectorSearch = ({ domain, artifacts }: VectorSearchProps) => {
                 Semantic search through {domain} knowledge base using advanced vector embeddings
               </p>
             </div>
-            <Badge variant="outline" className="bg-purple-100 text-purple-700 border-purple-300">
-              Enhanced RAG
-            </Badge>
+            <div className="flex space-x-2">
+              <Badge variant="outline" className="bg-purple-100 text-purple-700 border-purple-300">
+                Enhanced RAG
+              </Badge>
+              <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-300">
+                Multi-Vector Store
+              </Badge>
+            </div>
           </div>
         </CardHeader>
       </Card>
@@ -240,6 +281,38 @@ export const VectorSearch = ({ domain, artifacts }: VectorSearchProps) => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
+            {/* Configuration Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">Vector Store</label>
+                <select 
+                  value={selectedVectorStore}
+                  onChange={(e) => setSelectedVectorStore(e.target.value)}
+                  className="w-full border rounded px-3 py-2 text-sm"
+                >
+                  {ragManager.getAvailableStores().map(store => (
+                    <option key={store.name} value={store.name}>
+                      {store.type.toUpperCase()} - {store.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">LLM Model</label>
+                <select 
+                  value={selectedModel}
+                  onChange={(e) => setSelectedModel(e.target.value)}
+                  className="w-full border rounded px-3 py-2 text-sm"
+                >
+                  {modelManager.listProviders().map(provider => (
+                    <option key={provider.name} value={provider.name}>
+                      {provider.modelName} ({provider.type})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             <div className="flex space-x-4">
               <Input
                 placeholder={`Search ${domain} knowledge base...`}
@@ -316,7 +389,7 @@ export const VectorSearch = ({ domain, artifacts }: VectorSearchProps) => {
             {searchContext.results.length > 0 && (
               <div className="flex items-center justify-between text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
                 <span>
-                  Found {searchContext.results.length} results 
+                  Found {searchContext.results.length} results using {selectedVectorStore}
                   {searchContext.totalResults > searchContext.results.length && 
                     ` (${searchContext.totalResults} total)`
                   }

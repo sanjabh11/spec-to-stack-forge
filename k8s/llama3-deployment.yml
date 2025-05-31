@@ -1,0 +1,126 @@
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ai-models
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llama3-70b-vllm
+  namespace: ai-models
+  labels:
+    app: llama3-70b
+    model: llama3
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: llama3-70b
+  template:
+    metadata:
+      labels:
+        app: llama3-70b
+    spec:
+      nodeSelector:
+        coreweave.com/gpu: "true"
+        node.coreweave.com/class: "a100"
+      tolerations:
+      - key: "coreweave.com/gpu"
+        operator: "Exists"
+        effect: "NoSchedule"
+      containers:
+      - name: vllm-server
+        image: vllm/vllm-openai:latest
+        command: ["python", "-m", "vllm.entrypoints.openai.api_server"]
+        args:
+          - "--model"
+          - "meta-llama/Meta-Llama-3-70B-Instruct"
+          - "--host"
+          - "0.0.0.0"
+          - "--port"
+          - "8000"
+          - "--tensor-parallel-size"
+          - "4"
+          - "--dtype"
+          - "float16"
+          - "--max-model-len"
+          - "4096"
+          - "--gpu-memory-utilization"
+          - "0.95"
+          - "--enforce-eager"
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: HUGGING_FACE_HUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: model-secrets
+              key: hf-token
+        - name: CUDA_VISIBLE_DEVICES
+          value: "0,1,2,3"
+        resources:
+          requests:
+            nvidia.com/gpu: 4
+            memory: "64Gi"
+            cpu: "8"
+          limits:
+            nvidia.com/gpu: 4
+            memory: "128Gi"
+            cpu: "16"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 300
+          periodSeconds: 30
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 600
+          periodSeconds: 60
+        volumeMounts:
+        - name: model-cache
+          mountPath: /root/.cache/huggingface
+      volumes:
+      - name: model-cache
+        persistentVolumeClaim:
+          claimName: model-cache-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-cache-pvc
+  namespace: ai-models
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 200Gi
+  storageClassName: ceph-ssd
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llama3-70b-service
+  namespace: ai-models
+spec:
+  selector:
+    app: llama3-70b
+  ports:
+  - protocol: TCP
+    port: 8000
+    targetPort: 8000
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: model-secrets
+  namespace: ai-models
+type: Opaque
+data:
+  hf-token: # Base64 encoded Hugging Face token
