@@ -1,4 +1,3 @@
-
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
@@ -16,6 +15,8 @@ export default defineConfig({
         '**/*.d.ts',
       ],
     },
+    exclude: ['**/tests/e2e/**'],
+    include: ['tests/unit/**/*.test.ts', 'tests/integration/**/*.test.ts']
   },
   resolve: {
     alias: {

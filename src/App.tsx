@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,6 +8,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthPage } from "@/components/AuthPage";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import Builder from "./pages/Builder";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -67,6 +67,7 @@ const App = () => {
             <BrowserRouter>
               <Routes>
                 <Route path="/" element={<Index user={user} onLogout={handleLogout} />} />
+                <Route path="/builder" element={<Builder user={user} onLogout={handleLogout} />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>

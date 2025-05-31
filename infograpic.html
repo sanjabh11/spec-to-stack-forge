@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Platform Advisor Chat: Ultimate Architecture & Features Infographic</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F7FAFC; 
+        }
+        :root {
+            --coral-red: #FF6B6B;
+            --sunglow-yellow: #FFD166;
+            --caribbean-green: #06D6A0;
+            --blue-ncs: #118AB2;
+            --midnight-green: #073B4C; 
+            --card-bg: #FFFFFF;
+            --light-text: #F7FAFC;
+        }
+       .text-primary { color: var(--midnight-green); }
+       .text-accent-coral { color: var(--coral-red); }
+       .text-accent-yellow { color: var(--sunglow-yellow); }
+       .text-accent-green { color: var(--caribbean-green); }
+       .text-accent-blue { color: var(--blue-ncs); }
+
+       .bg-primary { background-color: var(--midnight-green); }
+       .bg-accent-coral { background-color: var(--coral-red); }
+       .bg-accent-yellow { background-color: var(--sunglow-yellow); }
+       .bg-accent-green { background-color: var(--caribbean-green); }
+       .bg-accent-blue { background-color: var(--blue-ncs); }
+       .border-accent-coral { border-color: var(--coral-red); }
+       .border-accent-yellow { border-color: var(--sunglow-yellow); }
+       .border-accent-green { border-color: var(--caribbean-green); }
+       .border-accent-blue { border-color: var(--blue-ncs); }
+
+       .section-card {
+            background-color: var(--card-bg);
+            border-radius: 0.75rem; 
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            margin-bottom: 2rem; 
+            padding: 1.5rem; 
+        }
+        @media (min-width: 768px) {
+           .section-card {
+                padding: 2rem; 
+            }
+        }
+       .stat-number {
+            font-size: 2.25rem; 
+            font-weight: 900;
+            line-height: 2.5rem; 
+        }
+       .flow-diagram-box {
+            border: 2px solid var(--blue-ncs);
+            padding: 0.75rem; 
+            border-radius: 0.5rem; 
+            background-color: #E0F7FA; 
+            text-align: center;
+            font-weight: 500;
+            color: var(--midnight-green);
+            min-height: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+       .flow-diagram-arrow {
+            font-size: 1.5rem; 
+            color: var(--blue-ncs);
+            margin: 0.5rem 0.5rem; 
+            align-self: center;
+            line-height: 1;
+        }
+       .custom-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem; 
+        }
+       .custom-table th,.custom-table td {
+            border: 1px solid #E2E8F0; 
+            padding: 0.75rem; 
+            text-align: left;
+            color: var(--midnight-green);
+        }
+       .custom-table th {
+            background-color: #F1F5F9; 
+            font-weight: 600;
+        }
+       .custom-table tbody tr:nth-child(odd) {
+            background-color: var(--card-bg);
+        }
+        .custom-table tbody tr:nth-child(even) {
+            background-color: #F8FAFC; 
+        }
+       .icon-list li {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem; 
+            color: var(--midnight-green);
+        }
+       .icon-list .icon {
+            margin-right: 0.75rem; 
+            font-size: 1.25rem; 
+        }
+       .pyramid-level {
+            padding: 0.75rem 1rem; 
+            margin: 0.25rem auto; 
+            border-radius: 0.375rem; 
+            text-align: center;
+            font-weight: 600;
+            color: var(--light-text);
+        }
+         .tech-stack-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            min-height: 120px;
+        }
+        .tech-stack-item .icon {
+            font-size: 2.5rem; 
+            margin-bottom: 0.5rem; 
+        }
+        .llm-choice-box {
+            border: 1px solid var(--blue-ncs);
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            background-color: #E0F7FA;
+            text-align: center;
+            font-weight: 500;
+            color: var(--midnight-green);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 80px;
+        }
+        .llm-choice-box .icon {
+            font-size: 1.8rem;
+            margin-bottom: 0.25rem;
+        }
+    </style>
+</head>
+<body class="text-primary">
+    <header class="bg-primary text-white py-8 shadow-lg">
+        <div class="container mx-auto px-4 md:px-6 text-center">
+            <h1 class="text-3xl md:text-4xl font-bold">AI Platform Advisor Chat: Ultimate Architecture & Features</h1>
+            <p class="mt-2 text-lg md:text-xl opacity-90">A Comprehensive Infographic Overview of the Enhanced PRD</p>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 md:px-6 py-8">
+
+        <section id="mission" class="section-card">
+            <h2 class="text-2xl md:text-3xl font-bold mb-3 text-accent-coral">1. Mission & Core Objectives</h2>
+            <p class="mb-6 text-lg">The AI Platform Advisor Chat is a hybrid-deployable, single-tenant-first web application designed to streamline the creation of AI-powered solutions. It now includes advanced features for requirement validation, LLM selection, and comprehensive observability.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-accent-green/10 p-6 rounded-lg">
+                    <h3 class="text-xl font-semibold text-accent-green mb-2">Key Goals:</h3>
+                    <ul class="list-disc list-inside space-y-1">
+                        <li>Elicit domain-aware requirements via Q&A wizard.</li>
+                        <li>**Validate & de-conflict specs (JSON Schema + GPT detector).**</li>
+                        <li>Invoke Gemini 2.5 Pro (or **fallback LLMs**) for generation.</li>
+                        <li>Generate production-grade architecture blueprints.</li>
+                        <li>Generate idempotent Terraform modules.</li>
+                        <li>Create n8n workflows for AI tasks.</li>
+                        <li>Provide CI/CD pipeline templates (GitHub Actions).</li>
+                        <li>Offer one-click PR creation, local sandbox, **CLI tool**.</li>
+                        <li>Ensure robust governance: RLS, audit logs, secrets, scans, compliance flags.</li>
+                        <li>Provide full observability: token usage/cost, latency, **model accuracy, embedding drift, RAG hit ratio.**</li>
+                    </ul>
+                </div>
+                <div class="bg-accent-blue/10 p-6 rounded-lg">
+                    <h3 class="text-xl font-semibold text-accent-blue mb-2">Targeted Industries:</h3>
+                     <div class="flex flex-wrap gap-2 justify-center mt-3">
+                        <span class="bg-accent-coral/80 text-white px-3 py-1 rounded-full text-xs font-medium">Legal</span>
+                        <span class="bg-accent-yellow/80 text-midnight-green px-3 py-1 rounded-full text-xs font-medium">Finance</span>
+                        <span class="bg-accent-green/80 text-white px-3 py-1 rounded-full text-xs font-medium">HR</span>
+                        <span class="bg-accent-blue/80 text-white px-3 py-1 rounded-full text-xs font-medium">Support</span>
+                        <span class="bg-accent-coral/80 text-white px-3 py-1 rounded-full text-xs font-medium">R&D</span>
+                        <span class="bg-accent-yellow/80 text-midnight-green px-3 py-1 rounded-full text-xs font-medium">Compliance</span>
+                        <span class="bg-accent-green/80 text-white px-3 py-1 rounded-full text-xs font-medium">Marketing</span>
+                        <span class="bg-accent-blue/80 text-white px-3 py-1 rounded-full text-xs font-medium">Ops</span>
+                        <span class="bg-accent-coral/80 text-white px-3 py-1 rounded-full text-xs font-medium">Sales</span>
+                        <span class="bg-accent-yellow/80 text-midnight-green px-3 py-1 rounded-full text-xs font-medium">Healthcare</span>
+                    </div>
+                    <p class="text-sm mt-3">The platform features branching logic, including **domain-specific sub-branching (e.g., EMR vs. Clinical Trials in Healthcare)**, to cater to nuanced industry needs and compliance requirements.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="phases" class="section-card">
+            <h2 class="text-2xl md:text-3xl font-bold mb-3 text-accent-yellow">2. Core Development & Delivery Phases</h2>
+            <p class="mb-6 text-lg">The AI Platform Advisor Chat operates in three distinct phases, guiding users from initial requirements to a deployable, production-ready solution, now with enhanced validation and governance.</p>
+            <div class="flex flex-col md:flex-row items-stretch md:items-start justify-around space-y-6 md:space-y-0 md:space-x-4">
+                
+                <div class="flex-1 section-card bg-accent-coral/5 p-4 rounded-lg border border-accent-coral">
+                    <h3 class="text-xl font-semibold text-accent-coral mb-2 text-center">Phase I: Requirement Capture</h3>
+                    <div class="flow-diagram-box mx-auto mb-2 w-full">Domain-Aware Q&A Wizard</div>
+                    <p class="text-sm text-center mb-1">User interacts via API (<code class="text-xs bg-gray-200 p-1 rounded">/api/requirements/*</code>).</p>
+                    <p class="text-sm text-center mb-1">Data stored in Supabase (RLS enforced).</p>
+                    <p class="text-sm text-center">**Includes JSON Schema + GPT Contradiction Check.**</p>
+                </div>
+
+                <div class="flow-diagram-arrow self-center hidden md:block transform md:rotate-0">➔</div>
+                <div class="flow-diagram-arrow self-center md:hidden">⬇</div>
+                
+                <div class="flex-1 section-card bg-accent-yellow/5 p-4 rounded-lg border border-accent-yellow">
+                    <h3 class="text-xl font-semibold text-accent-yellow mb-2 text-center">Phase II: Automated Generation</h3>
+                    <div class="flow-diagram-box mx-auto mb-2 w-full">Gemini 2.5 Pro Invocation</div>
+                     <p class="text-sm text-center mb-1">Validated spec triggers generation of:</p>
+                    <ul class="list-disc list-inside text-xs text-center mx-auto w-fit">
+                        <li>Architecture Blueprints (YAML)</li>
+                        <li>Terraform Modules (IaC)</li>
+                        <li>n8n Workflows (JSON)</li>
+                        <li>CI/CD Templates (GitHub Actions)</li>
+                    </ul>
+                    <p class="text-sm text-center mt-1">**With LLM Provider Selection & Multi-Model Support.**</p>
+                </div>
+
+                <div class="flow-diagram-arrow self-center hidden md:block transform md:rotate-0">➔</div>
+                <div class="flow-diagram-arrow self-center md:hidden">⬇</div>
+
+                <div class="flex-1 section-card bg-accent-green/5 p-4 rounded-lg border border-accent-green">
+                    <h3 class="text-xl font-semibold text-accent-green mb-2 text-center">Phase III: Delivery & Governance</h3>
+                     <div class="flow-diagram-box mx-auto mb-2 w-full">Deployment & Operations</div>
+                    <ul class="list-disc list-inside text-xs text-center mx-auto w-fit">
+                        <li>One-Click PR to GitHub/GitLab **with Diff View.**</li>
+                        <li>Local Dev Sandbox (Docker Compose).</li>
+                        <li>Audit Logs & Security Scanning.</li>
+                        <li>LLM & Infrastructure Observability.</li>
+                        <li>**GitOps Promotion & Canary Deployments.**</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+        
+        <section id="tech-stack" class="section-card">
+            <h2 class="text-2xl md:text-3xl font-bold mb-3 text-accent-green">3. Core Technology Stack</h2>
+            <p class="mb-6 text-lg">The platform integrates a modern technology stack to deliver its capabilities, focusing on AI, robust backend services, IaC, workflow automation, and a reactive frontend.</p>
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                <div class="tech-stack-item bg-accent-coral/10">
+                    <span class="icon text-accent-coral">🧠</span>
+                    <h4 class="font-semibold">Gemini 2.5 Pro</h4>
+                    <p class="text-xs">Core LLM, with multi-model support.</p>
+                </div>
+                <div class="tech-stack-item bg-accent-yellow/10">
+                     <span class="icon text-accent-yellow">⚙️</span>
+                    <h4 class="font-semibold">FastAPI</h4>
+                    <p class="text-xs">Python backend framework for robust APIs.</p>
+                </div>
+                 <div class="tech-stack-item bg-accent-green/10">
+                     <span class="icon text-accent-green">🔄</span>
+                    <h4 class="font-semibold">n8n</h4>
+                    <p class="text-xs">Workflow automation for AI tasks & notifications.</p>
+                </div>
+                <div class="tech-stack-item bg-accent-blue/10">
+                     <span class="icon text-accent-blue">🏗️</span>
+                    <h4 class="font-semibold">Terraform</h4>
+                    <p class="text-xs">Infrastructure as Code for cloud resources.</p>
+                </div>
+                <div class="tech-stack-item bg-purple-500/10">
+                    <span class="icon" style="color: #8B5CF6;">📄</span>
+                    <h4 class="font-semibold" style="color: #8B5CF6;">React & ShadCN</h4>
+                    <p class="text-xs">Frontend library and UI components.</p>
+                </div>
+                <div class="tech-stack-item bg-teal-500/10">
+                    <span class="icon" style="color: #14B8A6;">💾</span>
+                    <h4 class="font-semibold" style="color: #14B8A6;">Supabase</h4>
+                    <p class="text-xs">Postgres backend with RLS for data storage.</p>
+                </div>
+                 <div class="tech-stack-item bg-pink-500/10">
+                     <span class="icon" style="color: #EC4899;">🐳</span>
+                    <h4 class="font-semibold" style="color: #EC4899;">Docker</h4>
+                    <p class="text-xs">Containerization for local sandbox & deployment.</p>
+                </div>
+                <div class="tech-stack-item bg-orange-500/10">
+                     <span class="icon" style="color: #F97316;">🔗</span>
+                    <h4 class="font-semibold" style="color: #F97316;">ChromaDB</h4>
+                    <p class="text-xs">Vector database for embedding storage.</p>
+                </div>
+                 <div class="tech-stack-item bg-sky-500/10">
+                     <span class="icon" style="color: #0EA5E9;">🚀</span>
+                    <h4 class="font-semibold" style="color: #0EA5E9;">GitHub Actions</h4>
+                    <p class="text-xs">CI/CD pipelines and GitOps.</p>
+                </div>
+                 <div class="tech-stack-item bg-gray-500/10">
+                     <span class="icon" style="color: #6B7280;">🛠️</span>
+                    <h4 class="font-semibold" style="color: #6B7280;">Go/Rust CLI</h4>
+                    <p class="text-xs">Cross-platform CLI tool for generation.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="automated-generation" class="section-card">
+            <h2 class="text-2xl md:text-3xl font-bold mb-3 text-accent-blue">4. Automated Artifact Generation (Phase II Detail)</h2>
+            <p class="mb-6 text-lg">Once user requirements are captured and validated (Phase I), Phase II leverages Gemini 2.5 Pro through a series of specialized prompts to generate key project artifacts automatically, now with enhanced reliability.</p>
+            <div class="space-y-4">
+                <div class="p-4 border border-dashed border-accent-blue rounded-lg bg-accent-blue/5">
+                    <h3 class="text-lg font-semibold text-accent-blue mb-1">Step II.1: System Architecture Blueprint</h3>
+                    <p class="text-sm"><strong>Prompt to `SolutionDesigner`:</strong> Given validated spec JSON, produce YAML detailing services (name, purpose, autoscaling, SLA), tables (name, schema, compliance tags), and dependencies (type, vendor, version, security notes). Validated against `architecture.schema.yml`.</p>
+                </div>
+                <div class="p-4 border border-dashed border-accent-coral rounded-lg bg-accent-coral/5">
+                    <h3 class="text-lg font-semibold text-accent-coral mb-1">Step II.2: IaC (Terraform) Generation</h3>
+                    <p class="text-sm"><strong>Prompt to `IaCGenerator`:</strong> From architecture YAML, generate Terraform module (`main.tf`, `variables.tf`, `outputs.tf`) with variables for throughput, concurrency, budgets, compliance flags, and inline comments. Ensures idempotency and `terraform validate` passes.</p>
+                </div>
+                <div class="p-4 border border-dashed border-accent-yellow rounded-lg bg-accent-yellow/5">
+                    <h3 class="text-lg font-semibold text-accent-yellow mb-1">Step II.3: Workflow (n8n) Export</h3>
+                    <p class="text-sm"><strong>Prompt to `WorkflowBuilder`:</strong> From spec, generate n8n workflow JSON (data ingestion, embedding, LLM calls, notifications) with parameterized credentials and a README.</p>
+                </div>
+                <div class="p-4 border border-dashed border-accent-green rounded-lg bg-accent-green/5">
+                    <h3 class="text-lg font-semibold text-accent-green mb-1">Step II.4: CI/CD & GitOps Templates</h3>
+                    <p class="text-sm"><strong>Prompt to `CICDArchitect`:</strong> Generate GitHub Actions workflow (linting, testing, manual approval for prod apply) and multi-environment `terraform.tfvars`. **Includes showing diffs between branches.**</p>
+                </div>
+            </div>
+            <div class="mt-6">
+                <h3 class="text-xl font-semibold mb-3 text-accent-blue">LLM Provider Selection & Multi-Model Support</h3>
+                <p class="mb-4 text-sm">Users can select preferred LLM providers (Gemini, GPT-4, Claude) and define token/latency budgets, allowing for prompt tuning and accurate cost estimates. The system supports fallback or runtime selection among multiple LLMs based on these criteria.</p>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="llm-choice-box">
+                        <span class="icon">✨</span>
+                        <span>Gemini 2.5 Pro</span>
+                    </div>
+                    <div class="llm-choice-box">
+                        <span class="icon">💬</span>
+                        <span>GPT-4</span>
+                    </div>
+                    <div class="llm-choice-box">
+                        <span class="icon">📚</span>
+                        <span>Claude</span>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-6">
+                <h3 class="text-xl font-semibold mb-3 text-accent-coral">Contradiction Detection & Failure Resilience</h3>
+                <p class="text-sm mb-4">Before Phase II, a critical validation step uses a GPT contradiction detector to catch conflicting user inputs (e.g., "low cost" + "high throughput"). The system also defines automatic retry logic and dry-run validation to detect and recover from LLM timeouts or hallucinations.</p>
+                <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-around space-y-4 sm:space-y-0 sm:space-x-2">
+                    <div class="flow-diagram-box flex-1 bg-red-100 border-red-400 text-red-800">🕵️ Contradiction Detection</div>
+                    <div class="flow-diagram-arrow hidden sm:block">➔</div>
+                    <div class="sm:hidden text-center flow-diagram-arrow">↓</div>
+                    <div class="flow-diagram-box flex-1 bg-orange-100 border-orange-400 text-orange-800">🔄 Automatic Retries</div>
+                    <div class="flow-diagram-arrow hidden sm:block">➔</div>
+                    <div class="sm:hidden text-center flow-diagram-arrow">↓</div>
+                    <div class="flow-diagram-box flex-1 bg-green-100 border-green-400 text-green-800">✅ Dry-Run Validation</div>
+                </div>
+            </div>
+            <p class="mt-6 text-md">This chained prompting approach ensures each generated artifact is based on validated inputs from the previous step, enhancing reliability and consistency. Explainability is maintained through `/notes/infra.md` (human-readable rationale) and `/trace/generation.json` (full prompt/response logs) for auditing.</p>
+        </section>
+
+        <section id="security-compliance" class="section-card">
+            <h2 class="text-2xl md:text-3xl font-bold mb-3 text-accent-coral">5. Security, Compliance & Governance</h2>
+            <p class="mb-6 text-lg">The AI Platform Advisor Chat incorporates robust security measures, compliance guardrails, and governance features throughout its architecture and processes, now with enhanced GitOps and automated RLS testing.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-accent-coral/5 p-4 rounded-lg border border-accent-coral">
+                    <h3 class="text-xl font-semibold text-accent-coral mb-2">Key Security Features:</h3>
+                    <ul class="list-disc list-inside space-y-1 text-sm">
+                        <li><strong>Supabase RLS:</strong> Enforces tenant isolation at the data layer. **Automated tests verify RLS.**</li>
+                        <li><strong>Secret Management:</strong> Uses environment variables and GitHub Secrets.</li>
+                        <li><strong>Security Scanning:</strong> CI integrates `tfsec` or `Checkov` for Terraform scanning.</li>
+                        <li><strong>Manual Approval Gates:</strong> GitHub Actions enforce manual approval for production infrastructure changes **via web UI.**</li>
+                        <li><strong>Audit Logs:</strong> Append-only logs for every LLM prompt/response (`/trace/generation.json`) and infra applies.</li>
+                    </ul>
+                </div>
+                <div class="bg-accent-yellow/5 p-4 rounded-lg border border-accent-yellow">
+                    <h3 class="text-xl font-semibold text-accent-yellow mb-2">Advanced Compliance Flags:</h3>
+                    <p class="text-sm mb-2">The system supports flags that trigger specific configurations for compliance:</p>
+                    <div class="overflow-x-auto">
+                        <table class="custom-table text-xs">
+                            <thead>
+                                <tr><th>Flag</th><th>Effects</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>HIPAA</td><td>PHI encryption, extended audit retention, RLS enforced.</td></tr>
+                                <tr><td>GDPR</td><td>Data deletion workflows, EU-hosted DB option.</td></tr>
+                                <tr><td>SOC 2</td><td>Logging, credential rotation, posture checks.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="observability-devx" class="section-card">
+            <h2 class="text-2xl md:text-3xl font-bold mb-3 text-accent-green">6. Observability & ML Metrics</h2>
+            <p class="mb-6 text-lg">The platform provides comprehensive observability, extending beyond traditional metrics to include critical ML-specific insights, and offers an enhanced developer experience.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-accent-green/5 p-4 rounded-lg border border-accent-green">
+                    <h3 class="text-xl font-semibold text-accent-green mb-2">LLM & ML Observability Metrics:</h3>
+                    <p class="text-sm mb-2">Key metrics are captured to monitor LLM performance, cost, and ML model health (sample Grafana dashboards provided):</p>
+                    <ul class="icon-list space-y-1 text-sm">
+                        <li><span class="icon text-accent-coral">💲</span>Token usage per session & total cost.</li>
+                        <li><span class="icon text-accent-yellow">⏱️</span>Model latency percentiles.</li>
+                        <li><span class="icon text-accent-green">🎯</span>RAG hit/miss ratio.</li>
+                        <li><span class="icon text-accent-blue">📉</span>Embedding drift (cosine similarity shifts).</li>
+                        <li><span class="icon text-purple-500">✅</span>**Model accuracy (against small gold set).**</li>
+                        <li><span class="icon text-orange-500">📊</span>**RAG cache effectiveness.**</li>
+                    </ul>
+                </div>
+                <div class="bg-accent-blue/5 p-4 rounded-lg border border-accent-blue">
+                    <h3 class="text-xl font-semibold text-accent-blue mb-2">Developer Experience Enhancements:</h3>
+                    <ul class="icon-list space-y-1 text-sm">
+                         <li><span class="icon text-accent-coral">🐳</span><strong>Local Sandbox:</strong> `docker-compose.yml` for a full local stack (FastAPI, React, n8n, ChromaDB, Supabase/Postgres, **GPT-stub**).</li>
+                        <li><span class="icon text-accent-yellow">📝</span><strong>Explainability:</strong> Human-readable rationales (`/notes/infra.md`) and complete prompt/response traces (`/trace/generation.json`).</li>
+                        <li><span class="icon text-accent-green">⚡</span><strong>Prompt Cache:</strong> Caches prompt-response pairs **in Supabase/local** to speed up regeneration and reduce cost.</li>
+                        <li><span class="icon text-accent-blue">⌨️</span><strong>Cross-Language CLI Tool:</strong> (Go/Rust) for generating the stack from a spec file (`aiapp generate --spec spec.json ...`), **with offline mode using cached prompts.**</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+         <section id="personas" class="section-card">
+            <h2 class="text-2xl md:text-3xl font-bold mb-3 text-accent-yellow">7. Target Personas</h2>
+            <p class="mb-6 text-lg">The AI Platform Advisor Chat is designed to cater to distinct user personas, each with specific needs and acceptance criteria met by the platform's comprehensive features.</p>
+            <div class="overflow-x-auto">
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th>Persona</th>
+                            <th>Needs & Acceptance Criteria</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="font-semibold text-accent-coral">Business Analyst</td>
+                            <td>Clear “why” for each question, no code exposure. **Contradiction detection ensures valid inputs.**</td>
+                        </tr>
+                        <tr>
+                            <td class="font-semibold text-accent-green">Developer / DevOps</td>
+                            <td>Spec JSON + validated, linted & tested Terraform modules, n8n workflows, CI templates, and a local Docker Compose stack for iteration. **CLI tool for automation.**</td>
+                        </tr>
+                        <tr>
+                            <td class="font-semibold text-accent-blue">Admin / Security</td>
+                            <td>Enforced RLS, audit logs (with `/trace/`), manual approvals for production infrastructure changes, and compliance checks. **Automated RLS tests and GitOps promotion with diff views.**</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+
+    </main>
+
+    <footer class="bg-primary text-white py-6 mt-8">
+        <div class="container mx-auto px-4 md:px-6 text-center">
+            <p class="opacity-80">&copy; 2024 AI Platform Advisor Chat. Infographic based on Ultimate PRD.</p>
+            <p class="text-xs opacity-60 mt-1">This infographic visualizes the features and architecture described in the AI Platform Advisor Chat Ultimate PRD. For detailed specifications, refer to the full PRD document.</p>
+        </div>
+    </footer>
+
+</body>
+</html>

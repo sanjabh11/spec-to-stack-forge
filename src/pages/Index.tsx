@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Header } from "@/components/Header";
 import { DomainSelector } from "@/components/DomainSelector";
@@ -25,6 +24,9 @@ const Index = ({ user, onLogout }: IndexProps) => {
   const [showKnowledgeBase, setShowKnowledgeBase] = useState(false);
   const [showHealthCheck, setShowHealthCheck] = useState(false);
 
+  // Debug log for user prop
+  console.log('Index page user prop:', user);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
       {/* User Header */}
@@ -33,11 +35,15 @@ const Index = ({ user, onLogout }: IndexProps) => {
           <div className="flex items-center space-x-3">
             <User className="w-6 h-6 text-blue-600" />
             <div>
-              <p className="font-semibold text-gray-900">{user.name}</p>
-              <p className="text-sm text-gray-600">{user.email}</p>
+              <p className="font-semibold text-gray-900">
+                {user && user.name ? user.name : <span className="text-gray-400">Guest</span>}
+              </p>
+              <p className="text-sm text-gray-600">
+                {user && user.email ? user.email : <span className="text-gray-300">No email</span>}
+              </p>
             </div>
             <Badge variant="outline" className="ml-2">
-              {user.role}
+              {user && user.role ? user.role : <span className="text-gray-300">No role</span>}
             </Badge>
           </div>
           <div className="flex items-center space-x-2">
@@ -82,6 +88,12 @@ const Index = ({ user, onLogout }: IndexProps) => {
               >
                 <Database className="w-4 h-4 mr-2" />
                 Manage Knowledge Base
+              </Button>
+              <Button
+                onClick={() => window.location.href = '/builder'}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                🛠️ Open Builder
               </Button>
             </div>
             

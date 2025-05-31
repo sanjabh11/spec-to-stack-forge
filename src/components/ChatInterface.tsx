@@ -65,6 +65,8 @@ export const ChatInterface = ({ domain, onSessionComplete }: ChatInterfaceProps)
   const [generatedArtifacts, setGeneratedArtifacts] = useState<any>(null);
   const [showResults, setShowResults] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [suggestionActive, setSuggestionActive] = useState(false);
+  const [suggestedText, setSuggestedText] = useState('');
 
   useEffect(() => {
     initializeSession();
@@ -319,6 +321,20 @@ Type **"generate"** to start the automated generation process!`;
   const totalQuestions = 5;
   const progress = Math.round(((currentQuestion + 1) / totalQuestions) * 100);
 
+  // Handler for Suggest button
+  const handleSuggest = (suggestion: string) => {
+    setCurrentInput(suggestion);
+    setSuggestedText(suggestion);
+    setSuggestionActive(true);
+  };
+
+  // Handler for Accept button
+  const handleAccept = () => {
+    handleSendMessage();
+    setSuggestionActive(false);
+    setSuggestedText('');
+  };
+
   if (showResults && generatedArtifacts) {
     return (
       <div className="space-y-6">
@@ -389,7 +405,7 @@ Type **"generate"** to start the automated generation process!`;
       <Card className="bg-white/60 backdrop-blur-sm border border-gray-200 mb-6">
         <CardContent className="p-6">
           <div className="space-y-6 max-h-96 overflow-y-auto">
-            {messages.map((message) => (
+            {messages.map((message, idx) => (
               <div
                 key={message.id}
                 className={`flex items-start space-x-3 ${
@@ -405,7 +421,6 @@ Type **"generate"** to start the automated generation process!`;
                 }`}>
                   {getMessageIcon(message)}
                 </div>
-                
                 <div className={`flex-1 ${message.type === 'user' ? 'text-right' : ''}`}>
                   <div className={`inline-block max-w-xs lg:max-w-md xl:max-w-lg p-4 rounded-2xl ${
                     message.type === 'user'
@@ -417,15 +432,34 @@ Type **"generate"** to start the automated generation process!`;
                       : 'bg-gray-50 text-gray-800'
                   }`}>
                     <p className="whitespace-pre-wrap">{message.content}</p>
-                    
                     {message.validation && (
                       <div className="flex items-center space-x-2 mt-2 pt-2 border-t border-current/20">
                         {getValidationIcon(message.validation.status)}
                         <span className="text-xs opacity-80">{message.validation.message}</span>
                       </div>
                     )}
+                    {/* Version 1.0: Suggest/Accept button logic */}
+                    {message.type === 'assistant' && message.validation?.suggestions && message.validation.suggestions.length > 0 && !suggestionActive && idx === messages.length - 1 && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="mt-2" 
+                        onClick={() => handleSuggest(message.validation.suggestions[0])}
+                      >
+                        Suggest
+                      </Button>
+                    )}
+                    {suggestionActive && suggestedText === currentInput && idx === messages.length - 1 && (
+                      <Button 
+                        variant="default" 
+                        size="sm" 
+                        className="mt-2 ml-2" 
+                        onClick={handleAccept}
+                      >
+                        Accept
+                      </Button>
+                    )}
                   </div>
-                  
                   <div className="text-xs text-gray-500 mt-1">
                     {message.timestamp.toLocaleTimeString()}
                   </div>
@@ -458,7 +492,11 @@ Type **"generate"** to start the automated generation process!`;
         <div className="flex space-x-4">
           <Input
             value={currentInput}
-            onChange={(e) => setCurrentInput(e.target.value)}
+            onChange={(e) => {
+              setCurrentInput(e.target.value);
+              setSuggestionActive(false);
+              setSuggestedText('');
+            }}
             onKeyPress={handleKeyPress}
             placeholder={
               isComplete 
