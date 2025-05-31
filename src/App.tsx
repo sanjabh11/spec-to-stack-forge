@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -7,6 +8,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Builder from "./pages/Builder";
+import PlatformBuilder from "./pages/PlatformBuilder";
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AuthPage } from '@/components/AuthPage';
 
@@ -68,6 +70,7 @@ const App = () => {
               <Routes>
                 <Route path="/" element={<Index user={user} onLogout={handleLogout} />} />
                 <Route path="/builder" element={<Builder user={user} onLogout={handleLogout} />} />
+                <Route path="/platform-builder" element={<PlatformBuilder />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>

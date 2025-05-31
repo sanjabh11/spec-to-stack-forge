@@ -168,6 +168,45 @@ export type Database = {
           },
         ]
       }
+      knowledge_documents: {
+        Row: {
+          chunks_count: number | null
+          created_at: string | null
+          domain: string
+          embeddings_count: number | null
+          id: string
+          name: string
+          processing_progress: number | null
+          size: number | null
+          status: string | null
+          type: string | null
+        }
+        Insert: {
+          chunks_count?: number | null
+          created_at?: string | null
+          domain: string
+          embeddings_count?: number | null
+          id?: string
+          name: string
+          processing_progress?: number | null
+          size?: number | null
+          status?: string | null
+          type?: string | null
+        }
+        Update: {
+          chunks_count?: number | null
+          created_at?: string | null
+          domain?: string
+          embeddings_count?: number | null
+          id?: string
+          name?: string
+          processing_progress?: number | null
+          size?: number | null
+          status?: string | null
+          type?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string

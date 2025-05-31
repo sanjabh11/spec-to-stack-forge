@@ -99,7 +99,7 @@ export default function PlatformBuilder() {
             <ArtifactGenerator 
               sessionId={sessionId} 
               specification={specification}
-              onArtifactsGenerated={handleArtifactsGenerated}
+              onComplete={handleArtifactsGenerated}
             />
           </div>
         )}

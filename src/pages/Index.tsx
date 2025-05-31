@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Header } from "@/components/Header";
 import { DomainSelector } from "@/components/DomainSelector";
@@ -38,6 +39,23 @@ const Index = ({ user, onLogout }: IndexProps) => {
   // Debug log for user prop
   console.log('Index page user prop:', user);
 
+  const resetToStart = () => {
+    setSelectedDomain("");
+    setSessionData(null);
+    setArtifacts(null);
+    setCurrentView('domains');
+  };
+
+  const handleSessionComplete = (data: any) => {
+    setSessionData(data);
+    setCurrentView('results');
+  };
+
+  const handleArtifactsGenerated = (data: any) => {
+    setArtifacts(data);
+    setCurrentView('deploy');
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
       {/* User Header */}
@@ -47,14 +65,14 @@ const Index = ({ user, onLogout }: IndexProps) => {
             <User className="w-6 h-6 text-blue-600" />
             <div>
               <p className="font-semibold text-gray-900">
-                {user && user.name ? user.name : <span className="text-gray-400">Guest</span>}
+                {user?.name || "Guest"}
               </p>
               <p className="text-sm text-gray-600">
-                {user && user.email ? user.email : <span className="text-gray-300">No email</span>}
+                {user?.email || "No email"}
               </p>
             </div>
             <Badge variant="outline" className="ml-2">
-              {user && user.role ? user.role : <span className="text-gray-300">No role</span>}
+              {user?.role || "No role"}
             </Badge>
           </div>
           <div className="flex items-center space-x-2">
