@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Header } from "@/components/Header";
 import { DomainSelector } from "@/components/DomainSelector";
@@ -21,7 +20,8 @@ import {
   ArrowLeft,
   GitBranch,
   BarChart3,
-  Upload
+  Upload,
+  DollarSign
 } from "lucide-react";
 
 interface IndexProps {

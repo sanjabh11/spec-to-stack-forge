@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { RequirementWizard } from '@/components/RequirementWizard';
 import { ArtifactGenerator } from '@/components/ArtifactGenerator';
 import { DevOpsDashboard } from '@/components/DevOpsDashboard';
+import { CostEstimator } from '@/components/CostEstimator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -56,58 +57,105 @@ export default function PlatformBuilder() {
         ))}
       </div>
 
-      <div className="min-h-[600px]">
-        {currentPhase === 'requirements' && (
-          <RequirementWizard onComplete={handleRequirementsComplete} />
-        )}
+      <Tabs defaultValue="wizard" className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="wizard">Requirements Wizard</TabsTrigger>
+          <TabsTrigger value="cost-estimator">Cost Estimator</TabsTrigger>
+          <TabsTrigger value="generation" disabled={!specification}>Generation</TabsTrigger>
+          <TabsTrigger value="deployment" disabled={!artifacts}>Deployment</TabsTrigger>
+        </TabsList>
 
-        {currentPhase === 'generation' && sessionId && specification && (
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Specification Summary</CardTitle>
-                <CardDescription>
-                  Review your requirements before generating artifacts
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div>
-                    <span className="font-medium">Domain:</span>
-                    <div>{specification.domain}</div>
-                  </div>
-                  <div>
-                    <span className="font-medium">Users:</span>
-                    <div>{specification.users}</div>
-                  </div>
-                  <div>
-                    <span className="font-medium">SLA:</span>
-                    <div>{specification.sla_target}%</div>
-                  </div>
-                  <div>
-                    <span className="font-medium">Compliance:</span>
-                    <div className="flex flex-wrap gap-1">
-                      {specification.compliance?.map((c: string) => (
-                        <Badge key={c} variant="outline" className="text-xs">{c}</Badge>
-                      ))}
+        <TabsContent value="wizard">
+          <div className="min-h-[600px]">
+            {currentPhase === 'requirements' && (
+              <RequirementWizard onComplete={handleRequirementsComplete} />
+            )}
+
+            {currentPhase === 'generation' && sessionId && specification && (
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Specification Summary</CardTitle>
+                    <CardDescription>
+                      Review your requirements before generating artifacts
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div>
+                        <span className="font-medium">Domain:</span>
+                        <div>{specification.domain}</div>
+                      </div>
+                      <div>
+                        <span className="font-medium">Users:</span>
+                        <div>{specification.users}</div>
+                      </div>
+                      <div>
+                        <span className="font-medium">SLA:</span>
+                        <div>{specification.sla_target}%</div>
+                      </div>
+                      <div>
+                        <span className="font-medium">Compliance:</span>
+                        <div className="flex flex-wrap gap-1">
+                          {specification.compliance?.map((c: string) => (
+                            <Badge key={c} variant="outline" className="text-xs">{c}</Badge>
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
 
+                <ArtifactGenerator 
+                  sessionId={sessionId} 
+                  specification={specification}
+                  onComplete={handleArtifactsGenerated}
+                />
+              </div>
+            )}
+
+            {currentPhase === 'deployment' && sessionId && artifacts && (
+              <DevOpsDashboard sessionId={sessionId} artifacts={artifacts} />
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="cost-estimator">
+          <CostEstimator />
+        </TabsContent>
+
+        <TabsContent value="generation">
+          {sessionId && specification ? (
             <ArtifactGenerator 
               sessionId={sessionId} 
               specification={specification}
               onComplete={handleArtifactsGenerated}
             />
-          </div>
-        )}
+          ) : (
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-center text-muted-foreground">
+                  Complete the requirements wizard first to access artifact generation
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
 
-        {currentPhase === 'deployment' && sessionId && artifacts && (
-          <DevOpsDashboard sessionId={sessionId} artifacts={artifacts} />
-        )}
-      </div>
+        <TabsContent value="deployment">
+          {artifacts ? (
+            <DevOpsDashboard sessionId={sessionId!} artifacts={artifacts} />
+          ) : (
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-center text-muted-foreground">
+                  Generate artifacts first to access deployment dashboard
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

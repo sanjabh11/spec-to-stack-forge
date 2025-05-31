@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { apiClient } from '@/lib/apiClient';
 import { toast } from 'sonner';
+import { CostEstimator } from '@/components/CostEstimator';
 
 interface RequirementWizardProps {
   onComplete: (sessionId: string, specification: any) => void;
@@ -29,20 +29,22 @@ const COMPLIANCE_OPTIONS = [
   { id: 'FedRAMP', label: 'FedRAMP (Government)' }
 ];
 
+const steps = [
+  'Domain Selection',
+  'Basic Requirements', 
+  'Technical Specifications',
+  'Compliance & Security',
+  'Cost Estimation',
+  'Final Review'
+];
+
 export const RequirementWizard: React.FC<RequirementWizardProps> = ({ onComplete }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [responses, setResponses] = useState<any>({});
   const [questions, setQuestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-
-  const steps = [
-    'Domain Selection',
-    'Basic Requirements',
-    'Technical Specifications',
-    'Compliance & Security',
-    'Final Review'
-  ];
+  const [costEstimate, setCostEstimate] = useState<any>(null);
 
   useEffect(() => {
     if (responses.domain) {
@@ -160,6 +162,7 @@ export const RequirementWizard: React.FC<RequirementWizardProps> = ({ onComplete
       const specification = {
         domain: responses.domain,
         ...responses,
+        cost_estimate: costEstimate,
         compliance: responses.compliance || [],
         generated_at: new Date().toISOString()
       };
@@ -175,6 +178,10 @@ export const RequirementWizard: React.FC<RequirementWizardProps> = ({ onComplete
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCostCalculated = (estimate: any) => {
+    setCostEstimate(estimate);
   };
 
   const renderStepContent = () => {
@@ -294,7 +301,32 @@ export const RequirementWizard: React.FC<RequirementWizardProps> = ({ onComplete
           </div>
         );
 
-      case 4:
+      case 4: // Cost Estimation
+        return (
+          <div className="space-y-4">
+            <div className="text-center space-y-2">
+              <h3 className="text-lg font-semibold">Cost Estimation</h3>
+              <p className="text-sm text-muted-foreground">
+                Get an accurate cost estimate for your AI platform based on your requirements
+              </p>
+            </div>
+            <CostEstimator
+              initialData={{
+                domain: responses.domain,
+                data_volume_gb: parseFloat(responses.data_volume) || 50,
+                throughput_qps: parseInt(responses.throughput) || 100,
+                concurrent_users: parseInt(responses.users?.split('-')[0]) || 20,
+                model: responses.llm_provider === 'openai' ? 'gpt-4' : 
+                       responses.llm_provider === 'gemini' ? 'gemini-2.5' : 'local-model',
+                compliance_requirements: responses.compliance || [],
+              }}
+              onCostCalculated={handleCostCalculated}
+              showTitle={false}
+            />
+          </div>
+        );
+
+      case 5: // Final Review
         return (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Review Your Specification</h3>
@@ -311,6 +343,14 @@ export const RequirementWizard: React.FC<RequirementWizardProps> = ({ onComplete
                   {responses.compliance.map((c: string) => (
                     <Badge key={c} variant="secondary">{c}</Badge>
                   ))}
+                </div>
+              )}
+              {costEstimate && (
+                <div className="mt-4 p-4 border rounded-lg bg-green-50">
+                  <strong>Estimated Monthly Cost:</strong> ${costEstimate.total_monthly_cost}
+                  <div className="text-sm text-muted-foreground mt-1">
+                    This includes infrastructure, AI models, storage, and compliance requirements
+                  </div>
                 </div>
               )}
             </div>
