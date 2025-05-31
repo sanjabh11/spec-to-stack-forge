@@ -1,14 +1,14 @@
+import { useState, useEffect } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { useState, useEffect } from "react";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { AuthPage } from "@/components/AuthPage";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Builder from "./pages/Builder";
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { AuthPage } from '@/components/AuthPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -62,7 +62,7 @@ const App = () => {
           <Toaster />
           <Sonner />
           {!user ? (
-            <AuthPage onLogin={handleLogin} />
+            <AuthPage onAuthSuccess={handleLogin} />
           ) : (
             <BrowserRouter>
               <Routes>

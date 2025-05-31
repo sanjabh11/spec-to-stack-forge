@@ -1,443 +1,588 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { 
+  FileCode2, 
   Download, 
-  FileText, 
-  Code, 
-  GitBranch, 
-  Settings, 
-  Copy,
-  Check,
-  Eye,
-  ExternalLink,
-  Rocket,
-  ArrowLeft,
-  GitCompare,
-  Star,
-  Brain
+  Copy, 
+  CheckCircle2, 
+  Loader2,
+  GitBranch,
+  Cloud,
+  Settings
 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { DeploymentDashboard } from './DeploymentDashboard';
-import { ModelComparison } from './ModelComparison';
-import { QualityScoring } from './QualityScoring';
 
 interface GenerationResultsProps {
   sessionData: any;
   domain: string;
   onArtifactsGenerated: (artifacts: any) => void;
-  artifacts?: any;
 }
 
-export const GenerationResults = ({ sessionData, domain, onArtifactsGenerated, artifacts: propsArtifacts }: GenerationResultsProps) => {
-  const [copiedItem, setCopiedItem] = useState<string>('');
-  const [showDeployment, setShowDeployment] = useState(false);
-  const [showModelComparison, setShowModelComparison] = useState(false);
-  const [showQualityScoring, setShowQualityScoring] = useState(false);
-  const [artifacts, setArtifacts] = useState<any>(propsArtifacts || null);
-
-  // Mock artifacts generation - in real implementation this would come from props
-  useState(() => {
-    if (!artifacts) {
-      const mockArtifacts = {
-        architecture: {
-          yaml: `# ${domain} AI Solution Architecture
-version: "3.8"
-services:
-  api:
-    build: .
-    ports:
-      - "8000:8000"
-    environment:
-      - DATABASE_URL=postgresql://user:pass@db:5432/aiplatform
-  db:
-    image: postgres:13
-    environment:
-      - POSTGRES_DB=aiplatform
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=pass`
-        },
-        terraform: {
-          files: {
-            "main.tf": `provider "aws" {
-  region = "us-west-2"
+interface GeneratedArtifact {
+  type: string;
+  name: string;
+  content: string;
+  description: string;
+  downloadName: string;
 }
 
-resource "aws_instance" "app" {
-  ami           = "ami-0c55b159cbfafe1d0"
-  instance_type = "t2.micro"
-  
-  tags = {
-    Name = "${domain}-ai-platform"
+export const GenerationResults = ({ sessionData, domain, onArtifactsGenerated }: GenerationResultsProps) => {
+  const [artifacts, setArtifacts] = useState<GeneratedArtifact[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [activeTab, setActiveTab] = useState('blueprint');
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (sessionData && Object.keys(sessionData).length > 0) {
+      generateArtifacts();
+    }
+  }, [sessionData]);
+
+  const generateArtifacts = async () => {
+    setIsGenerating(true);
+    setGenerationProgress(0);
+
+    try {
+      // Simulate progressive generation
+      const steps = [
+        { name: 'Architecture Blueprint', progress: 20 },
+        { name: 'Terraform Infrastructure', progress: 40 },
+        { name: 'n8n Workflow', progress: 60 },
+        { name: 'CI/CD Pipeline', progress: 80 },
+        { name: 'Docker Configuration', progress: 100 }
+      ];
+
+      for (const step of steps) {
+        setGenerationProgress(step.progress);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+
+      // Generate actual artifacts based on session data
+      const generatedArtifacts = await createArtifacts(sessionData, domain);
+      setArtifacts(generatedArtifacts);
+      onArtifactsGenerated(generatedArtifacts);
+
+      toast({
+        title: "Artifacts Generated",
+        description: "All infrastructure code and configurations have been generated successfully",
+      });
+
+    } catch (error: any) {
+      console.error('Generation failed:', error);
+      toast({
+        title: "Generation Failed",
+        description: "Failed to generate artifacts. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const createArtifacts = async (data: any, domain: string): Promise<GeneratedArtifact[]> => {
+    const compliance = data.compliance || 'GDPR';
+    const budget = data.budget || '$5000';
+    const performance = data.performance || '100 requests/sec';
+    
+    return [
+      {
+        type: 'blueprint',
+        name: 'Architecture Blueprint',
+        description: 'Complete system architecture specification',
+        downloadName: 'architecture-blueprint.yaml',
+        content: `# AI Platform Architecture Blueprint
+# Domain: ${domain}
+# Generated: ${new Date().toISOString()}
+
+apiVersion: v1
+kind: Architecture
+metadata:
+  name: ${domain.toLowerCase()}-ai-platform
+  domain: ${domain}
+  compliance: [${compliance}]
+  budget: ${budget}
+
+spec:
+  services:
+    api_gateway:
+      type: nginx-ingress
+      replicas: 2
+      resources:
+        cpu: 500m
+        memory: 1Gi
+      
+    ai_backend:
+      type: fastapi
+      replicas: 3
+      resources:
+        cpu: 1000m
+        memory: 2Gi
+      environment:
+        - DOMAIN=${domain}
+        - LLM_PROVIDER=gemini
+        - COMPLIANCE_MODE=${compliance}
+        
+    vector_db:
+      type: chromadb
+      replicas: 2
+      persistence: true
+      resources:
+        cpu: 500m
+        memory: 4Gi
+        
+    workflow_engine:
+      type: n8n
+      replicas: 1
+      resources:
+        cpu: 250m
+        memory: 1Gi
+
+  networking:
+    ingress:
+      enabled: true
+      tls: true
+      annotations:
+        nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        
+  security:
+    rbac: enabled
+    networkPolicies: enabled
+    podSecurityStandards: restricted
+    
+  monitoring:
+    prometheus: enabled
+    grafana: enabled
+    alerts: enabled
+
+  scaling:
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 10
+      targetCPU: 70
+      
+  compliance:
+    ${compliance.includes('HIPAA') ? 'hipaa: enabled' : ''}
+    ${compliance.includes('GDPR') ? 'gdpr: enabled' : ''}
+    ${compliance.includes('SOC2') ? 'soc2: enabled' : ''}
+    encryption: enabled
+    auditLogs: enabled`
+      },
+      {
+        type: 'terraform',
+        name: 'Terraform Infrastructure',
+        description: 'Infrastructure as Code for cloud deployment',
+        downloadName: 'main.tf',
+        content: `# Terraform Infrastructure for ${domain} AI Platform
+# Generated: ${new Date().toISOString()}
+
+terraform {
+  required_version = ">= 1.0"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.20"
+    }
   }
-}`,
-            "variables.tf": `variable "region" {
+}
+
+provider "aws" {
+  region = var.aws_region
+}
+
+# VPC Configuration
+resource "aws_vpc" "main" {
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_hostnames = true
+  enable_dns_support   = true
+
+  tags = {
+    Name = "\${var.project_name}-vpc"
+    Domain = "${domain}"
+    Compliance = "${compliance}"
+  }
+}
+
+# EKS Cluster
+resource "aws_eks_cluster" "main" {
+  name     = "\${var.project_name}-cluster"
+  role_arn = aws_iam_role.eks_cluster.arn
+  version  = "1.27"
+
+  vpc_config {
+    subnet_ids              = aws_subnet.private[*].id
+    endpoint_private_access = true
+    endpoint_public_access  = true
+    public_access_cidrs     = ["0.0.0.0/0"]
+  }
+
+  encryption_config {
+    provider {
+      key_arn = aws_kms_key.eks.arn
+    }
+    resources = ["secrets"]
+  }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.eks_cluster_policy,
+  ]
+
+  tags = {
+    Name = "\${var.project_name}-eks"
+    Domain = "${domain}"
+  }
+}
+
+# Variables
+variable "project_name" {
+  description = "Name of the project"
+  type        = string
+  default     = "${domain.toLowerCase()}-ai-platform"
+}
+
+variable "aws_region" {
   description = "AWS region"
+  type        = string
   default     = "us-west-2"
 }
 
-variable "instance_type" {
-  description = "EC2 instance type"
-  default     = "t2.micro"
+# Outputs
+output "cluster_endpoint" {
+  description = "EKS cluster endpoint"
+  value       = aws_eks_cluster.main.endpoint
+}
+
+output "cluster_name" {
+  description = "EKS cluster name"
+  value       = aws_eks_cluster.main.name
 }`
-          }
-        },
-        workflow: {
-          n8n_json: {
-            "nodes": [
-              {
-                "parameters": {
-                  "httpMethod": "POST",
-                  "path": "/webhook",
-                  "responseMode": "responseNode"
-                },
-                "id": "webhook-1",
-                "name": "Webhook",
-                "type": "n8n-nodes-base.webhook",
-                "typeVersion": 1,
-                "position": [250, 300]
-              }
-            ],
-            "connections": {}
-          }
-        },
-        cicd: {
-          github_actions: `name: CI/CD Pipeline
+      },
+      {
+        type: 'n8n',
+        name: 'n8n Workflow',
+        description: 'Automation workflow for document processing',
+        downloadName: 'document-processing-workflow.json',
+        content: JSON.stringify({
+          "name": `${domain} Document Processing`,
+          "nodes": [
+            {
+              "parameters": {
+                "httpMethod": "POST",
+                "path": "/webhook/document-upload",
+                "responseMode": "onReceived",
+                "options": {}
+              },
+              "id": "webhook-trigger",
+              "name": "Document Upload Webhook",
+              "type": "n8n-nodes-base.webhook",
+              "typeVersion": 1,
+              "position": [240, 300]
+            },
+            {
+              "parameters": {
+                "functionCode": `// Extract and validate document\nconst document = $input.first().json;\n\nif (!document.file || !document.domain) {\n  throw new Error('Missing required fields: file, domain');\n}\n\n// Validate domain\nconst allowedDomains = ['Legal', 'Finance', 'Healthcare', 'Human Resources', 'Customer Support'];\nif (!allowedDomains.includes(document.domain)) {\n  throw new Error('Invalid domain specified');\n}\n\nreturn {\n  filename: document.file.filename,\n  content: document.file.content,\n  domain: document.domain,\n  uploadTime: new Date().toISOString(),\n  processingId: 'proc_' + Math.random().toString(36).substr(2, 9)\n};`
+              },
+              "id": "validate-document",
+              "name": "Validate Document",
+              "type": "n8n-nodes-base.function",
+              "typeVersion": 1,
+              "position": [460, 300]
+            }
+          ],
+          "connections": {
+            "Document Upload Webhook": {
+              "main": [[{
+                "node": "Validate Document",
+                "type": "main",
+                "index": 0
+              }]]
+            }
+          },
+          "active": true,
+          "settings": {
+            "timezone": "America/New_York"
+          },
+          "createdAt": new Date().toISOString(),
+          "updatedAt": new Date().toISOString(),
+          "id": `workflow_${domain.toLowerCase()}_${Date.now()}`
+        }, null, 2)
+      },
+      {
+        type: 'cicd',
+        name: 'CI/CD Pipeline',
+        description: 'GitHub Actions workflow for automated deployment',
+        downloadName: '.github-workflows-deploy.yml',
+        content: `# CI/CD Pipeline for ${domain} AI Platform
+# Generated: ${new Date().toISOString()}
+
+name: Deploy ${domain} AI Platform
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, staging ]
   pull_request:
     branches: [ main ]
+
+env:
+  AWS_REGION: us-west-2
+  EKS_CLUSTER_NAME: ${domain.toLowerCase()}-ai-platform-cluster
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
     - name: Run tests
       run: |
-        npm install
-        npm test
-        
-  deploy:
+        npm run test
+        npm run test:e2e
+        npm run test:integration
+
+  deploy-production:
     needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
+    environment: production
     steps:
-    - name: Deploy to production
-      run: echo "Deploying ${domain} AI solution"`
-        }
-      };
-      
-      setArtifacts(mockArtifacts);
-      onArtifactsGenerated(mockArtifacts);
-    }
-  });
+    - uses: actions/checkout@v3
+    
+    - name: Deploy to EKS
+      run: |
+        kubectl apply -f k8s/production/
+        kubectl rollout status deployment/${domain.toLowerCase()}-api -n production`
+      },
+      {
+        type: 'docker',
+        name: 'Docker Configuration',
+        description: 'Docker and Kubernetes deployment manifests',
+        downloadName: 'docker-compose.yml',
+        content: `# Docker Compose for ${domain} AI Platform
+# Generated: ${new Date().toISOString()}
 
-  const copyToClipboard = async (content: string, itemName: string) => {
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/${domain.toLowerCase()}_db
+    depends_on:
+      - db
+      - chromadb
+    restart: unless-stopped
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=${domain.toLowerCase()}_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  chromadb:
+    image: chromadb/chroma:latest
+    ports:
+      - "8001:8000"
+    volumes:
+      - chromadb_data:/chroma/chroma
+    environment:
+      - CHROMA_SERVER_HOST=0.0.0.0
+      - CHROMA_SERVER_HTTP_PORT=8000
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  chromadb_data:`
+      }
+    ];
+  };
+
+  const handleDownload = (artifact: GeneratedArtifact) => {
+    const blob = new Blob([artifact.content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = artifact.downloadName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Downloaded",
+      description: `${artifact.name} has been downloaded`,
+    });
+  };
+
+  const handleCopy = async (content: string, index: number) => {
     try {
       await navigator.clipboard.writeText(content);
-      setCopiedItem(itemName);
-      setTimeout(() => setCopiedItem(''), 2000);
+      setCopiedIndex(index);
+      setTimeout(() => setCopiedIndex(null), 2000);
+      
       toast({
-        title: "Copied!",
-        description: `${itemName} copied to clipboard`,
+        title: "Copied",
+        description: "Content copied to clipboard",
       });
     } catch (error) {
       toast({
-        title: "Copy failed",
-        description: "Failed to copy to clipboard",
+        title: "Copy Failed",
+        description: "Failed to copy content to clipboard",
         variant: "destructive"
       });
     }
   };
 
-  const downloadFile = (content: string, filename: string) => {
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  const CodeBlock = ({ content, language, filename }: { content: string; language: string; filename: string }) => (
-    <div className="relative">
-      <div className="flex items-center justify-between bg-gray-100 px-4 py-2 border-b">
-        <span className="text-sm font-medium text-gray-700">{filename}</span>
-        <div className="flex space-x-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => copyToClipboard(content, filename)}
-          >
-            {copiedItem === filename ? (
-              <Check className="w-4 h-4 text-green-500" />
-            ) : (
-              <Copy className="w-4 h-4" />
-            )}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => downloadFile(content, filename)}
-          >
-            <Download className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
-      <pre className="bg-gray-50 p-4 overflow-x-auto text-sm max-h-96">
-        <code>{content}</code>
-      </pre>
-    </div>
-  );
-
-  if (showDeployment && artifacts) {
+  if (isGenerating) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center space-x-4">
-          <Button variant="ghost" size="sm" onClick={() => setShowDeployment(false)}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Results
-          </Button>
-          <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-            Phase III - Deployment
-          </Badge>
-        </div>
-        <DeploymentDashboard 
-          artifacts={artifacts} 
-          sessionData={sessionData} 
-          domain={domain} 
-        />
-      </div>
-    );
-  }
-
-  if (showModelComparison && artifacts) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center space-x-4">
-          <Button variant="ghost" size="sm" onClick={() => setShowModelComparison(false)}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Results
-          </Button>
-          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-            Model Comparison
-          </Badge>
-        </div>
-        <ModelComparison 
-          artifacts={artifacts} 
-          sessionData={sessionData} 
-          domain={domain} 
-        />
-      </div>
-    );
-  }
-
-  if (showQualityScoring && artifacts) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center space-x-4">
-          <Button variant="ghost" size="sm" onClick={() => setShowQualityScoring(false)}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Results
-          </Button>
-          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-            Quality Scoring
-          </Badge>
-        </div>
-        <QualityScoring 
-          artifacts={artifacts} 
-          sessionData={sessionData} 
-          domain={domain} 
-        />
-      </div>
-    );
-  }
-
-  if (!artifacts) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Generating artifacts...</p>
-        </div>
-      </div>
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span>Generating Artifacts...</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span>Generation Progress</span>
+              <span>{generationProgress}%</span>
+            </div>
+            <Progress value={generationProgress} className="w-full" />
+          </div>
+          <div className="text-center text-gray-600">
+            <p>Please wait while we generate your infrastructure code...</p>
+            <p className="text-sm">This may take a few minutes.</p>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      {/* Header */}
-      <Card className="bg-gradient-to-r from-green-50 to-blue-50 border-green-200">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-2xl text-green-800">🎉 Generation Complete!</CardTitle>
-              <p className="text-green-600 mt-2">
-                Your {domain} AI solution architecture has been generated successfully.
-              </p>
-            </div>
-            <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300">
-              Phase II Complete
-            </Badge>
-          </div>
-        </CardHeader>
-      </Card>
-
-      {/* Quick Actions */}
+    <div className="space-y-6">
+      {/* Summary Card */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <GitBranch className="w-5 h-5" />
-            <span>Quick Actions</span>
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <CheckCircle2 className="w-5 h-5 text-green-500" />
+              <span>Artifacts Generated Successfully</span>
+            </div>
+            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+              {artifacts.length} Files Generated
+            </Badge>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-3">
-            <Button 
-              className="bg-purple-600 hover:bg-purple-700"
-              onClick={() => setShowDeployment(true)}
-            >
-              <Rocket className="w-4 h-4 mr-2" />
-              Deploy & Monitor
-            </Button>
-            <Button 
-              className="bg-blue-600 hover:bg-blue-700"
-              onClick={() => setShowModelComparison(true)}
-            >
-              <GitCompare className="w-4 h-4 mr-2" />
-              Compare Models
-            </Button>
-            <Button 
-              className="bg-green-600 hover:bg-green-700"
-              onClick={() => setShowQualityScoring(true)}
-            >
-              <Star className="w-4 h-4 mr-2" />
-              Quality Score
-            </Button>
-            <Button className="bg-gray-800 hover:bg-gray-900">
-              <ExternalLink className="w-4 h-4 mr-2" />
-              Create GitHub PR
-            </Button>
-            <Button variant="outline">
-              <Download className="w-4 h-4 mr-2" />
-              Download All Files
-            </Button>
-            <Button variant="outline">
-              <Eye className="w-4 h-4 mr-2" />
-              Preview Deployment
-            </Button>
-            <Button variant="outline">
-              <Settings className="w-4 h-4 mr-2" />
-              Local Sandbox
-            </Button>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center">
+              <FileCode2 className="w-8 h-8 mx-auto text-blue-500 mb-2" />
+              <p className="font-medium">Infrastructure</p>
+              <p className="text-sm text-gray-600">Terraform + K8s</p>
+            </div>
+            <div className="text-center">
+              <GitBranch className="w-8 h-8 mx-auto text-green-500 mb-2" />
+              <p className="font-medium">CI/CD</p>
+              <p className="text-sm text-gray-600">GitHub Actions</p>
+            </div>
+            <div className="text-center">
+              <Settings className="w-8 h-8 mx-auto text-purple-500 mb-2" />
+              <p className="font-medium">Workflows</p>
+              <p className="text-sm text-gray-600">n8n Automation</p>
+            </div>
+            <div className="text-center">
+              <Cloud className="w-8 h-8 mx-auto text-orange-500 mb-2" />
+              <p className="font-medium">Deployment</p>
+              <p className="text-sm text-gray-600">Docker + Cloud</p>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Generated Artifacts */}
+      {/* Artifacts Tabs */}
       <Card>
         <CardHeader>
-          <CardTitle>Generated Artifacts</CardTitle>
-          <p className="text-gray-600">
-            Review and download your generated architecture files below.
-          </p>
+          <CardTitle>Generated Code & Configuration Files</CardTitle>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="architecture" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="architecture" className="flex items-center space-x-2">
-                <FileText className="w-4 h-4" />
-                <span>Architecture</span>
-              </TabsTrigger>
-              <TabsTrigger value="terraform" className="flex items-center space-x-2">
-                <Code className="w-4 h-4" />
-                <span>Terraform</span>
-              </TabsTrigger>
-              <TabsTrigger value="workflow" className="flex items-center space-x-2">
-                <Settings className="w-4 h-4" />
-                <span>n8n Workflow</span>
-              </TabsTrigger>
-              <TabsTrigger value="cicd" className="flex items-center space-x-2">
-                <GitBranch className="w-4 h-4" />
-                <span>CI/CD</span>
-              </TabsTrigger>
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="blueprint">Blueprint</TabsTrigger>
+              <TabsTrigger value="terraform">Terraform</TabsTrigger>
+              <TabsTrigger value="n8n">n8n Workflow</TabsTrigger>
+              <TabsTrigger value="cicd">CI/CD</TabsTrigger>
+              <TabsTrigger value="docker">Docker</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="architecture" className="mt-6">
-              <div className="space-y-4">
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                  <h3 className="font-semibold text-blue-800 mb-2">System Architecture Blueprint</h3>
-                  <p className="text-blue-600 text-sm">
-                    YAML specification defining services, databases, dependencies, and infrastructure requirements.
-                  </p>
+            {artifacts.map((artifact, index) => (
+              <TabsContent key={artifact.type} value={artifact.type} className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">{artifact.name}</h3>
+                    <p className="text-sm text-gray-600">{artifact.description}</p>
+                  </div>
+                  <div className="flex space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleCopy(artifact.content, index)}
+                    >
+                      {copiedIndex === index ? (
+                        <CheckCircle2 className="w-4 h-4 mr-2" />
+                      ) : (
+                        <Copy className="w-4 h-4 mr-2" />
+                      )}
+                      {copiedIndex === index ? 'Copied' : 'Copy'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDownload(artifact)}
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Download
+                    </Button>
+                  </div>
                 </div>
-                <CodeBlock 
-                  content={artifacts.architecture.yaml} 
-                  language="yaml" 
-                  filename="architecture.yml" 
-                />
-              </div>
-            </TabsContent>
 
-            <TabsContent value="terraform" className="mt-6">
-              <div className="space-y-4">
-                <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
-                  <h3 className="font-semibold text-orange-800 mb-2">Infrastructure as Code</h3>
-                  <p className="text-orange-600 text-sm">
-                    Terraform modules for provisioning cloud infrastructure with proper variable configuration.
-                  </p>
+                <div className="border rounded-lg overflow-hidden">
+                  <pre className="bg-gray-50 p-4 text-sm overflow-x-auto max-h-96">
+                    <code>{artifact.content}</code>
+                  </pre>
                 </div>
-                {Object.entries(artifacts.terraform.files).map(([filename, content]) => (
-                  <CodeBlock 
-                    key={filename}
-                    content={content as string} 
-                    language="terraform" 
-                    filename={filename} 
-                  />
-                ))}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="workflow" className="mt-6">
-              <div className="space-y-4">
-                <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                  <h3 className="font-semibold text-green-800 mb-2">Workflow Automation</h3>
-                  <p className="text-green-600 text-sm">
-                    n8n workflow configuration for data processing, LLM integration, and notifications.
-                  </p>
-                </div>
-                <CodeBlock 
-                  content={JSON.stringify(artifacts.workflow.n8n_json, null, 2)} 
-                  language="json" 
-                  filename="workflow.json" 
-                />
-              </div>
-            </TabsContent>
-
-            <TabsContent value="cicd" className="mt-6">
-              <div className="space-y-4">
-                <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-                  <h3 className="font-semibold text-purple-800 mb-2">CI/CD Pipeline</h3>
-                  <p className="text-purple-600 text-sm">
-                    GitHub Actions workflow for automated testing, security scanning, and deployment.
-                  </p>
-                </div>
-                <CodeBlock 
-                  content={artifacts.cicd.github_actions} 
-                  language="yaml" 
-                  filename=".github/workflows/ci.yml" 
-                />
-              </div>
-            </TabsContent>
+              </TabsContent>
+            ))}
           </Tabs>
         </CardContent>
       </Card>
@@ -447,24 +592,24 @@ jobs:
         <CardHeader>
           <CardTitle>Next Steps</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid md:grid-cols-3 gap-4">
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-4 border rounded-lg">
-              <h3 className="font-semibold mb-2">1. Review & Customize</h3>
+              <h4 className="font-medium mb-2">1. Review & Customize</h4>
               <p className="text-sm text-gray-600">
-                Review the generated artifacts and customize them according to your specific needs.
+                Review the generated code and customize it according to your specific requirements.
               </p>
             </div>
             <div className="p-4 border rounded-lg">
-              <h3 className="font-semibold mb-2">2. Deploy Infrastructure</h3>
+              <h4 className="font-medium mb-2">2. Deploy Infrastructure</h4>
               <p className="text-sm text-gray-600">
-                Use the Terraform modules to provision your cloud infrastructure.
+                Use the Terraform files to provision your cloud infrastructure.
               </p>
             </div>
             <div className="p-4 border rounded-lg">
-              <h3 className="font-semibold mb-2">3. Monitor & Optimize</h3>
+              <h4 className="font-medium mb-2">3. Set up CI/CD</h4>
               <p className="text-sm text-gray-600">
-                Use the deployment dashboard to monitor performance and optimize costs.
+                Configure the GitHub Actions workflow for automated deployments.
               </p>
             </div>
           </div>
