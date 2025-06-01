@@ -1,0 +1,38 @@
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'orchestration'
+    static_configs:
+      - targets: ['orchestration:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  - job_name: 'llm-inference'
+    static_configs:
+      - targets: ['llm-inference:8001']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  - job_name: 'llamaindex-service'
+    static_configs:
+      - targets: ['llamaindex-service:8002']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  - job_name: 'n8n'
+    static_configs:
+      - targets: ['n8n:5678']
+    metrics_path: '/metrics'
+    scrape_interval: 60s
+
+rule_files:
+  - "alert_rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093

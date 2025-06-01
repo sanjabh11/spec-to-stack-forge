@@ -1,0 +1,110 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orchestration
+  namespace: ai-models
+  labels:
+    app: orchestration
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: orchestration
+  template:
+    metadata:
+      labels:
+        app: orchestration
+    spec:
+      containers:
+      - name: orchestration
+        image: orchestration:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: LLM_INFERENCE_URL
+          value: "http://llm-inference-service:8001"
+        - name: LLAMAINDEX_URL
+          value: "http://llamaindex-service:8002"
+        - name: N8N_URL
+          value: "http://n8n-service:5678"
+        - name: MONITORING_URL
+          value: "http://grafana-service:3000"
+        - name: REDIS_URL
+          value: "redis://redis-service:6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orchestration-service
+  namespace: ai-models
+spec:
+  selector:
+    app: orchestration
+  ports:
+  - protocol: TCP
+    port: 8000
+    targetPort: 8000
+  type: ClusterIP
+---
+# Redis for caching and session management
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: ai-models
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  namespace: ai-models
+spec:
+  selector:
+    app: redis
+  ports:
+  - protocol: TCP
+    port: 6379
+    targetPort: 6379
+  type: ClusterIP

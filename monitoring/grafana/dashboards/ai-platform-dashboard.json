@@ -1,0 +1,71 @@
+
+{
+  "dashboard": {
+    "id": null,
+    "title": "AI Platform KPIs",
+    "description": "Comprehensive monitoring for AI Advisor Platform",
+    "panels": [
+      {
+        "id": 1,
+        "title": "LLM Costs",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "llm_cost_total",
+            "legendFormat": "Total Cost"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "currencyUSD"
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "RAG Hit Rate",
+        "type": "gauge",
+        "targets": [
+          {
+            "expr": "rag_hit_rate",
+            "legendFormat": "Hit Rate"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Query Volume",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(query_total[5m])",
+            "legendFormat": "Queries/sec"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Infrastructure Health",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "up",
+            "legendFormat": "Service Status"
+          }
+        ]
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "30s"
+  }
+}

@@ -8,6 +8,7 @@ import { AdminModelConfig } from '@/components/AdminModelConfig';
 import { WorkflowLibrary } from '@/components/WorkflowLibrary';
 import { ExecutiveDashboard } from '@/components/ExecutiveDashboard';
 import { EnhancedVectorStoreManager } from '@/components/EnhancedVectorStoreManager';
+import { OrchestrationDashboard } from '@/components/OrchestrationDashboard';
 
 export default function AdminPage() {
   const navigate = useNavigate();
@@ -22,14 +23,19 @@ export default function AdminPage() {
           </Button>
         </div>
 
-        <Tabs defaultValue="dashboard" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+        <Tabs defaultValue="orchestration" className="w-full">
+          <TabsList className="grid w-full grid-cols-6">
+            <TabsTrigger value="orchestration">Orchestration</TabsTrigger>
             <TabsTrigger value="dashboard">Executive Dashboard</TabsTrigger>
             <TabsTrigger value="models">Model Config</TabsTrigger>
             <TabsTrigger value="vectorstores">Vector Stores</TabsTrigger>
             <TabsTrigger value="workflows">Workflow Library</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="orchestration">
+            <OrchestrationDashboard />
+          </TabsContent>
 
           <TabsContent value="dashboard">
             <ExecutiveDashboard />
