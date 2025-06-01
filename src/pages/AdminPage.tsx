@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { AdminModelConfig } from '@/components/AdminModelConfig';
 import { WorkflowLibrary } from '@/components/WorkflowLibrary';
 import { ExecutiveDashboard } from '@/components/ExecutiveDashboard';
+import { EnhancedVectorStoreManager } from '@/components/EnhancedVectorStoreManager';
 
 export default function AdminPage() {
   const navigate = useNavigate();
@@ -22,9 +23,10 @@ export default function AdminPage() {
         </div>
 
         <Tabs defaultValue="dashboard" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="dashboard">Executive Dashboard</TabsTrigger>
             <TabsTrigger value="models">Model Config</TabsTrigger>
+            <TabsTrigger value="vectorstores">Vector Stores</TabsTrigger>
             <TabsTrigger value="workflows">Workflow Library</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
@@ -35,6 +37,10 @@ export default function AdminPage() {
 
           <TabsContent value="models">
             <AdminModelConfig />
+          </TabsContent>
+
+          <TabsContent value="vectorstores">
+            <EnhancedVectorStoreManager />
           </TabsContent>
 
           <TabsContent value="workflows">

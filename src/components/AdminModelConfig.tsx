@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Cpu, Database, DollarSign, Settings, Trash2, Plus } from 'lucide-react';
+import { Cpu, Database, DollarSign, Settings, Trash2, Plus, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ModelConfig {
@@ -98,6 +97,48 @@ export const AdminModelConfig: React.FC = () => {
     isDefault: false
   });
 
+  const [llmInferenceEndpoint, setLlmInferenceEndpoint] = useState('http://llm-inference-service:8001');
+  const [availableModels, setAvailableModels] = useState<any[]>([]);
+
+  useEffect(() => {
+    loadAvailableModels();
+  }, []);
+
+  const loadAvailableModels = async () => {
+    try {
+      const response = await fetch(`${llmInferenceEndpoint}/models`);
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableModels(data.models);
+      }
+    } catch (error) {
+      console.error('Failed to load available models:', error);
+    }
+  };
+
+  const testModelConnection = async (modelName: string) => {
+    try {
+      const response = await fetch(`${llmInferenceEndpoint}/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: modelName,
+          prompt: 'Hello, this is a test.',
+          max_tokens: 10
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        toast.success(`${modelName} test successful: ${data.text}`);
+      } else {
+        throw new Error(`HTTP ${response.status}`);
+      }
+    } catch (error) {
+      toast.error(`${modelName} test failed: ${error}`);
+    }
+  };
+
   const addModel = () => {
     if (!newModel.name || !newModel.endpoint) {
       toast.error('Please fill in required fields');
@@ -174,16 +215,17 @@ export const AdminModelConfig: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="text-center space-y-2">
-        <h2 className="text-3xl font-bold">Model & Infrastructure Configuration</h2>
+        <h2 className="text-3xl font-bold">Enhanced Model & Infrastructure Configuration</h2>
         <p className="text-muted-foreground">
-          Configure LLM models, vector databases, and deployment settings
+          Configure LLM models, vector databases, and deployment settings with multi-model support
         </p>
       </div>
 
       <Tabs defaultValue="models" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="models">LLM Models</TabsTrigger>
           <TabsTrigger value="vectordb">Vector Databases</TabsTrigger>
+          <TabsTrigger value="inference">Inference Service</TabsTrigger>
           <TabsTrigger value="deployment">Deployment</TabsTrigger>
         </TabsList>
 
@@ -399,6 +441,75 @@ export const AdminModelConfig: React.FC = () => {
                 <Button onClick={addVectorDB} className="flex items-center space-x-2">
                   <Plus className="w-4 h-4" />
                   <span>Add Vector Database</span>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="inference" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Cpu className="w-5 h-5" />
+                <span>LLM Inference Service</span>
+              </CardTitle>
+              <CardDescription>
+                Manage the unified LLM inference gateway
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label>Inference Service Endpoint</Label>
+                <Input
+                  value={llmInferenceEndpoint}
+                  onChange={(e) => setLlmInferenceEndpoint(e.target.value)}
+                  placeholder="http://llm-inference-service:8001"
+                />
+              </div>
+
+              <div className="space-y-4">
+                <h4 className="font-semibold">Available Models</h4>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Model</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {availableModels.map((model) => (
+                      <TableRow key={model.name}>
+                        <TableCell className="font-medium">{model.name}</TableCell>
+                        <TableCell>
+                          <Badge variant={model.type === 'self-hosted' ? 'default' : 'secondary'}>
+                            {model.type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={model.status === 'healthy' ? 'default' : 'destructive'}>
+                            {model.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => testModelConnection(model.name)}
+                          >
+                            Test
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+
+                <Button onClick={loadAvailableModels} variant="outline">
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Refresh Models
                 </Button>
               </div>
             </CardContent>
