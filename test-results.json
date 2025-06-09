@@ -1,0 +1,268 @@
+{
+  "timestamp": "2025-06-01T20:37:16.258895",
+  "summary": {
+    "total": 32,
+    "passed": 22,
+    "failed": 9,
+    "skipped": 1,
+    "success_rate": 70.96774193548387
+  },
+  "results": [
+    {
+      "feature": "Authentication & RBAC",
+      "test_name": "Health Check",
+      "status": "FAIL",
+      "details": "HTTP 401: {\"code\":401,\"message\":\"Invalid JWT\"}",
+      "execution_time": 1.5722150802612305,
+      "timestamp": "2025-06-01T20:37:12.271580"
+    },
+    {
+      "feature": "Authentication & RBAC",
+      "test_name": "Database Connectivity",
+      "status": "FAIL",
+      "details": "HTTP 401",
+      "execution_time": 0.18398094177246094,
+      "timestamp": "2025-06-01T20:37:12.455605"
+    },
+    {
+      "feature": "LLM Inference Service",
+      "test_name": "LLM Gateway",
+      "status": "FAIL",
+      "details": "HTTP 401: {\"code\":401,\"message\":\"Invalid JWT\"}",
+      "execution_time": 0.6930890083312988,
+      "timestamp": "2025-06-01T20:37:13.148965"
+    },
+    {
+      "feature": "LLM Inference Service",
+      "test_name": "Model Configuration",
+      "status": "PASS",
+      "details": "Multiple models configured (LLaMA, Gemini, Mistral)",
+      "execution_time": 9.5367431640625e-07,
+      "timestamp": "2025-06-01T20:37:13.149052"
+    },
+    {
+      "feature": "RAG System",
+      "test_name": "Document Ingestion",
+      "status": "FAIL",
+      "details": "HTTP 401",
+      "execution_time": 0.36633777618408203,
+      "timestamp": "2025-06-01T20:37:13.516025"
+    },
+    {
+      "feature": "RAG System",
+      "test_name": "Vector Search",
+      "status": "FAIL",
+      "details": "HTTP 401",
+      "execution_time": 0.6026761531829834,
+      "timestamp": "2025-06-01T20:37:14.118871"
+    },
+    {
+      "feature": "RAG System",
+      "test_name": "Multi-Vector Store",
+      "status": "PASS",
+      "details": "ChromaDB + Weaviate + LlamaIndex abstraction implemented",
+      "execution_time": 0,
+      "timestamp": "2025-06-01T20:37:14.118935"
+    },
+    {
+      "feature": "Requirement Wizard",
+      "test_name": "Session Start",
+      "status": "FAIL",
+      "details": "HTTP 401",
+      "execution_time": 0.31642699241638184,
+      "timestamp": "2025-06-01T20:37:14.435566"
+    },
+    {
+      "feature": "Artifact Generation",
+      "test_name": "Architecture Generation",
+      "status": "FAIL",
+      "details": "HTTP 401",
+      "execution_time": 0.5257959365844727,
+      "timestamp": "2025-06-01T20:37:14.961823"
+    },
+    {
+      "feature": "Artifact Generation",
+      "test_name": "CLI Generation",
+      "status": "FAIL",
+      "details": "HTTP 401",
+      "execution_time": 0.35906100273132324,
+      "timestamp": "2025-06-01T20:37:15.320938"
+    },
+    {
+      "feature": "GitHub Integration",
+      "test_name": "Repository Creation",
+      "status": "SKIP",
+      "details": "GitHub credentials not configured",
+      "execution_time": 0.5951669216156006,
+      "timestamp": "2025-06-01T20:37:15.916453"
+    },
+    {
+      "feature": "Observability",
+      "test_name": "Metrics Collection",
+      "status": "FAIL",
+      "details": "HTTP 401",
+      "execution_time": 0.3410167694091797,
+      "timestamp": "2025-06-01T20:37:16.257708"
+    },
+    {
+      "feature": "Observability",
+      "test_name": "Audit Logging",
+      "status": "PASS",
+      "details": "Audit logs table configured",
+      "execution_time": 9.5367431640625e-07,
+      "timestamp": "2025-06-01T20:37:16.257805"
+    },
+    {
+      "feature": "UI Components",
+      "test_name": "ChatInterface.tsx",
+      "status": "PASS",
+      "details": "Component file exists",
+      "execution_time": 0,
+      "timestamp": "2025-06-01T20:37:16.258341"
+    },
+    {
+      "feature": "UI Components",
+      "test_name": "DomainSelector.tsx",
+      "status": "PASS",
+      "details": "Component file exists",
+      "execution_time": 0,
+      "timestamp": "2025-06-01T20:37:16.258382"
+    },
+    {
+      "feature": "UI Components",
+      "test_name": "GenerationResults.tsx",
+      "status": "PASS",
+      "details": "Component file exists",
+      "execution_time": 0,
+      "timestamp": "2025-06-01T20:37:16.258398"
+    },
+    {
+      "feature": "UI Components",
+      "test_name": "DeploymentDashboard.tsx",
+      "status": "PASS",
+      "details": "Component file exists",
+      "execution_time": 0,
+      "timestamp": "2025-06-01T20:37:16.258413"
+    },
+    {
+      "feature": "UI Components",
+      "test_name": "DocumentUpload.tsx",
+      "status": "PASS",
+      "details": "Component file exists",
+      "execution_time": 0,
+      "timestamp": "2025-06-01T20:37:16.258427"
+    },
+    {
+      "feature": "UI Components",
+      "test_name": "EnhancedVectorStoreManager.tsx",
+      "status": "PASS",
+      "details": "Component file exists",
+      "execution_time": 0,
+      "timestamp": "2025-06-01T20:37:16.258440"
+    },
+    {
+      "feature": "UI Components",
+      "test_name": "OrchestrationDashboard.tsx",
+      "status": "PASS",
+      "details": "Component file exists",
+      "execution_time": 0,
+      "timestamp": "2025-06-01T20:37:16.258455"
+    },
+    {
+      "feature": "UI Components",
+      "test_name": "Index.tsx",
+      "status": "PASS",
+      "details": "Page file exists",
+      "execution_time": 0,
+      "timestamp": "2025-06-01T20:37:16.258475"
+    },
+    {
+      "feature": "UI Components",
+      "test_name": "AdminPage.tsx",
+      "status": "PASS",
+      "details": "Page file exists",
+      "execution_time": 0,
+      "timestamp": "2025-06-01T20:37:16.258492"
+    },
+    {
+      "feature": "UI Components",
+      "test_name": "PlatformBuilder.tsx",
+      "status": "PASS",
+      "details": "Page file exists",
+      "execution_time": 0,
+      "timestamp": "2025-06-01T20:37:16.258506"
+    },
+    {
+      "feature": "Deployment Infrastructure",
+      "test_name": "Dockerfile",
+      "status": "PASS",
+      "details": "Docker config exists",
+      "execution_time": 0,
+      "timestamp": "2025-06-01T20:37:16.258526"
+    },
+    {
+      "feature": "Deployment Infrastructure",
+      "test_name": "Dockerfile",
+      "status": "PASS",
+      "details": "Docker config exists",
+      "execution_time": 0,
+      "timestamp": "2025-06-01T20:37:16.258542"
+    },
+    {
+      "feature": "Deployment Infrastructure",
+      "test_name": "docker-compose.orchestration.yml",
+      "status": "PASS",
+      "details": "Docker config exists",
+      "execution_time": 0,
+      "timestamp": "2025-06-01T20:37:16.258555"
+    },
+    {
+      "feature": "Deployment Infrastructure",
+      "test_name": "orchestration-deployment.yml",
+      "status": "PASS",
+      "details": "K8s config exists",
+      "execution_time": 0,
+      "timestamp": "2025-06-01T20:37:16.258571"
+    },
+    {
+      "feature": "Deployment Infrastructure",
+      "test_name": "llm-inference-deployment.yml",
+      "status": "PASS",
+      "details": "K8s config exists",
+      "execution_time": 0,
+      "timestamp": "2025-06-01T20:37:16.258585"
+    },
+    {
+      "feature": "Deployment Infrastructure",
+      "test_name": "deploy-enhanced-platform.sh",
+      "status": "PASS",
+      "details": "Script exists",
+      "execution_time": 0,
+      "timestamp": "2025-06-01T20:37:16.258601"
+    },
+    {
+      "feature": "Deployment Infrastructure",
+      "test_name": "test-enhanced-platform.sh",
+      "status": "PASS",
+      "details": "Script exists",
+      "execution_time": 0,
+      "timestamp": "2025-06-01T20:37:16.258614"
+    },
+    {
+      "feature": "Streamlit UI",
+      "test_name": "Streamlit App",
+      "status": "PASS",
+      "details": "Streamlit app file exists",
+      "execution_time": 0,
+      "timestamp": "2025-06-01T20:37:16.258631"
+    },
+    {
+      "feature": "Streamlit UI",
+      "test_name": "Streamlit Dependencies",
+      "status": "PASS",
+      "details": "Requirements file exists",
+      "execution_time": 0,
+      "timestamp": "2025-06-01T20:37:16.258644"
+    }
+  ]
+}

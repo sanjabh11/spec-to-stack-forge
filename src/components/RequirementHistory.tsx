@@ -1,0 +1,137 @@
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+
+export function RequirementHistory({ tenantId, onRestore }: { tenantId?: string, onRestore?: (session: any) => void }) {
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
+  const [sessionToDelete, setSessionToDelete] = useState<any>(null);
+
+  useEffect(() => {
+    async function fetchSessions() {
+      setLoading(true);
+      setError(null);
+      let query: any = supabase.from('requirement_sessions').select('*').order('created_at', { ascending: false });
+      if (tenantId) query = query.eq('tenant_id', tenantId);
+      const { data, error } = await query;
+      if (error) setError(error.message);
+      else setSessions(data ?? []);
+      setLoading(false);
+    }
+    fetchSessions();
+  }, [tenantId]);
+
+  const handleDeleteSession = async (sessionId: string) => {
+    await supabase.from('requirement_sessions').delete().eq('id', sessionId);
+    setSessions(sessions.filter((s) => s.id !== sessionId));
+    setDeleteDialogOpen(false);
+    setSessionToDelete(null);
+  };
+
+  const handleDeleteAll = async () => {
+    if (tenantId) {
+      await supabase.from('requirement_sessions').delete().eq('tenant_id', tenantId);
+      setSessions([]);
+    }
+    setDeleteAllDialogOpen(false);
+  };
+
+  return (
+    <Card className="mb-6">
+      <CardHeader>
+        <CardTitle>My Requirements History</CardTitle>
+        <div className="flex justify-end">
+          {sessions.length > 0 && (
+            <button
+              className="text-xs text-red-600 border border-red-200 rounded px-2 py-1 bg-red-50 hover:bg-red-100 ml-2"
+              onClick={() => setDeleteAllDialogOpen(true)}
+            >
+              Delete All
+            </button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {loading && <div>Loading...</div>}
+        {error && <div className="text-red-500">Error: {error}</div>}
+        {(!loading && sessions.length === 0) && <div>No previous requirements found.</div>}
+        <ul className="divide-y divide-gray-200">
+          {sessions.map(session => (
+            <li key={session.id} className={`py-2 flex flex-col md:flex-row md:items-center md:justify-between ${session.status === 'generated' ? 'bg-green-50' : ''}`}>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold">
+                  {session.session_data?.domain || 'Unknown'}
+                </span>
+                <span className="ml-2 text-gray-500 text-sm">{new Date(session.created_at).toLocaleString()}</span>
+                {session.status === 'generated' && (
+                  <span className="ml-2 text-green-600" title="Completed">
+                    ✓
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="inline-block px-2 py-1 rounded bg-gray-100 text-xs text-gray-700 mr-2">{session.status}</span>
+                {onRestore && (
+                  <button
+                    className="text-blue-600 hover:underline text-xs border border-blue-200 rounded px-2 py-1 bg-blue-50"
+                    onClick={() => onRestore(session)}
+                  >
+                    Restore
+                  </button>
+                )}
+                <button
+                  className="text-xs text-red-600 border border-red-200 rounded px-2 py-1 bg-red-50 hover:bg-red-100"
+                  onClick={() => { setSessionToDelete(session); setDeleteDialogOpen(true); }}
+                >
+                  Delete
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Session</DialogTitle>
+              <DialogDescription>
+                Confirm deletion of this requirement session. This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            {sessionToDelete && (
+              <>
+                <p>Are you sure you want to delete this session? This action cannot be undone.</p>
+                <div className="flex justify-end gap-4 mt-4">
+                  <button className="px-4 py-2 bg-gray-200 rounded" onClick={() => setDeleteDialogOpen(false)}>Cancel</button>
+                  <button className="px-6 py-2 bg-red-600 text-white rounded font-bold" onClick={() => handleDeleteSession(sessionToDelete.id)}>
+                    Delete
+                  </button>
+                </div>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
+        <Dialog open={deleteAllDialogOpen} onOpenChange={setDeleteAllDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete All Sessions</DialogTitle>
+              <DialogDescription>
+                Confirm deletion of all requirement sessions for this tenant. This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <p>Are you sure you want to delete <b>all</b> your requirement sessions? This action cannot be undone.</p>
+            <div className="flex justify-end gap-4 mt-4">
+              <button className="px-4 py-2 bg-gray-200 rounded" onClick={() => setDeleteAllDialogOpen(false)}>Cancel</button>
+              <button className="px-6 py-2 bg-red-600 text-white rounded font-bold" onClick={handleDeleteAll}>
+                Delete All
+              </button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </CardContent>
+    </Card>
+  );
+} 

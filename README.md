@@ -25,6 +25,7 @@ The platform is modular, extensible, and ready for multi-model, multi-vertical u
 - **Executive Dashboard:** KPI metrics, ROI analysis, usage analytics, recommendations
 - **Admin Model Config:** Manage LLMs, vector DBs, GPU deployment, and settings
 - **Extensible/Modular:** PlatformBuilder, RequirementWizard, CostEstimator, and AdminPage are modular and ready for new verticals
+- **Knowledge Base Q&A Chatbot:** Unified chat interface now supports a Knowledge Base Q&A mode. Users can ask free-form questions, which are answered using the uploaded documents via a RAG pipeline. No duplicate upload or management UI—single interface for all knowledge base operations. (See version-log.yaml)
 
 ---
 
@@ -46,6 +47,7 @@ The platform is modular, extensible, and ready for multi-model, multi-vertical u
 
 4. **Manage Knowledge Base**
    - Use the **Knowledge Base** card to upload and manage documents for RAG.
+   - In the **Chatbot**, switch to "Knowledge Base Q&A" mode to ask questions grounded in your uploaded documents. The system retrieves relevant chunks and generates an answer using the LLM.
 
 5. **Monitor and Analyze**
    - Use the **Analytics** card for observability and performance metrics.
@@ -59,6 +61,31 @@ The platform is modular, extensible, and ready for multi-model, multi-vertical u
 
 8. **Scenario Planning**
    - Use the Cost Estimator and Platform Builder for scenario planning and executive decision support.
+
+---
+
+## Knowledge Base Q&A Event Flow
+
+```mermaid
+flowchart TD
+  A["User enters Chatbot"] --> B{"Select Mode"}
+  B -- "Requirements Session" --> C["Requirements Q&A Flow"]
+  B -- "Knowledge Base Q&A" --> D["User submits question"]
+  D --> E["Supabase Function: knowledge-base-search"]
+  E --> F["Retrieve relevant document chunks"]
+  F --> G["Compose context for LLM"]
+  G --> H["Supabase Function: process-requirement (with context)"]
+  H --> I["LLM generates answer"]
+  I --> J["Display answer and context to user"]
+  C --> K["Session data and next question"]
+  K --> L["Display in chat UI"]
+```
+
+---
+
+## Modular Version Log
+
+See `version-log.yaml` for a full history of modular changes and rollbacks.
 
 ---
 
@@ -169,3 +196,92 @@ For a detailed technical plan, see `Docs/idea2` and `README-deployment.md` in th
 ---
 
 For questions or contributions, please open an issue or contact the maintainers.
+
+---
+
+## Recent Enhancements (2024)
+
+- **Enhanced Cost Estimator:**
+  - Visual controls (sliders, simple selectors) for "Low/Medium/High" volume and resource settings
+  - Real-time budget alerts and optimization suggestions
+  - Scenario comparison (current vs optimized vs high-performance)
+  - One-click executive summary export (PDF/CSV)
+  - AI-powered cost optimization recommendations
+- **Industry-Specific Workflow Library:**
+  - Pre-built templates for HR, Finance, Legal, Manufacturing
+  - Best practices tooltips and recommendations for each workflow
+  - User ratings and usage stats (if enabled)
+  - Sample values for quick deployment
+  - Advanced filtering by industry, category, difficulty, popularity
+- **Executive Dashboard & ROI Analysis:**
+  - Real-time KPI widgets (cost, ROI, compliance, performance)
+  - ROI calculator and business value analysis
+  - Automated compliance scoring and breakdowns
+  - Custom report export (PDF/CSV) for executives
+  - Project portfolio view (status, costs, performance)
+- **Enhanced User Experience:**
+  - Guided navigation with breadcrumbs and context-aware flows
+  - Progressive disclosure (simple → advanced)
+  - Smart defaults for each industry
+  - Contextual help and tooltips throughout the UI
+
+---
+
+## Non-Technical User Testing Guide (Example: HR Domain)
+
+This guide walks you through testing the platform as a non-technical user, using the HR domain as an example. You can follow similar steps for Finance, Legal, or Manufacturing.
+
+### 1. **Log In and Access the Platform**
+- Open the web app in your browser.
+- Log in with your provided credentials (or use SSO if enabled).
+- You will land on the main dashboard with quick action cards.
+
+### 2. **Start a New HR Project**
+- Click the **Platform Builder** or **Create New Project** card.
+- In the wizard, select **HR** as your domain.
+- Enter a project name and brief objective (e.g., "HR Policy Q&A Bot").
+
+### 3. **Upload HR Documents**
+- When prompted, upload your HR policy documents (PDF, DOCX, TXT, etc.).
+- Wait for the upload to complete. You should see a list of uploaded files.
+
+### 4. **Configure Requirements**
+- Use the simple sliders or dropdowns to set:
+  - Data volume (e.g., Low/Medium/High)
+  - Expected users (e.g., 10, 50, 100+)
+  - Throughput (requests per second)
+  - Compliance needs (e.g., GDPR, SOC2)
+- The wizard will show real-time cost estimates and recommendations as you adjust settings.
+
+### 5. **Review Cost Estimate & Scenarios**
+- View the cost estimator panel:
+  - See the monthly cost breakdown (infrastructure, storage, AI models, compliance, etc.)
+  - Review any budget alerts or optimization suggestions
+  - Compare scenarios (current, optimized, high-performance)
+- Click **Export Summary** to download a PDF/CSV for stakeholders if needed.
+
+### 6. **Select Workflow Template**
+- Choose from pre-built HR workflow templates (e.g., "HR Policy Q&A", "Employee Onboarding Automation").
+- Review best practices/tooltips for each template.
+- Optionally, filter templates by popularity, difficulty, or category.
+- Select a template and apply sample values for quick setup.
+
+### 7. **Deploy and Test the Workflow**
+- Click **Deploy** to launch your HR AI solution.
+- Use the chat or Q&A interface to ask HR policy questions and verify responses.
+- Upload a new document and confirm it is processed and searchable.
+
+### 8. **Monitor and Analyze**
+- Go to the **Executive Dashboard**:
+  - View real-time KPIs (usage, cost, compliance, ROI)
+  - Use the ROI calculator to see business value (time saved, cost reduction)
+  - Download custom reports if needed
+- Check the **Project Portfolio** for status and performance of all your AI projects.
+
+### 9. **Get Help and Feedback**
+- Hover over tooltips or click help icons for guidance at any step.
+- Use the feedback form or support contact for any issues or suggestions.
+
+---
+
+*This guide ensures that any non-technical user can test and validate all major platform features, from document upload to analytics, with no coding required.*

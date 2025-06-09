@@ -34,16 +34,16 @@ By the end, an organization can spin up a **“Private AI Advisor”** with thei
 
 ---
 
-## 2. Solution Overview & Core Architecture
 
-Below is a simplified block diagram of the final platform. Each numbered component corresponds to phases in this plan.
-
-```
  ┌──────────────────────────┐
  │    User (Web Browser)    │
  │  • Business Analyst      │
  │  • Non-Tech Executive    │
- └──────────▲───────────────┘
+ └──────────▲────## 2. Solution Overview & Core Architecture
+
+Below is a simplified block diagram of the final platform. Each numbered component corresponds to phases in this plan.
+
+```───────────┘
             │  
             │  [React / Streamlit UI]
             │

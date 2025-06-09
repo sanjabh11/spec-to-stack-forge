@@ -1,0 +1,27 @@
+[
+  {
+    "version": "1.0",
+    "date": "2024-06-09",
+    "description": "Initial modular always-visible small font Stepper component. Accepts steps, currentStep, onStepClick. Minimal, sticky, and modular."
+  },
+  {
+    "version": "1.1",
+    "date": "2024-06-09",
+    "description": "Add DialogDescription to DialogContent in RequirementHistory for accessibility and to fix Radix warning."
+  },
+  {
+    "version": "1.2",
+    "date": "2024-06-09",
+    "description": "Fix ChatInterface: questions state now stores question objects, and all usages reference .question, preventing React child object errors."
+  },
+  {
+    "version": "1.3",
+    "date": "2024-06-09",
+    "description": "RequirementWizard: add requirements field to specification for validation compatibility."
+  },
+  {
+    "version": "1.4",
+    "date": "2024-06-09",
+    "description": "ArtifactGenerator: defensively ensure requirements field is present in specification before generation API call."
+  }
+] 

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -54,11 +53,26 @@ export const ArtifactGenerator: React.FC<ArtifactGeneratorProps> = ({
         setProgress(currentProgress);
       }
 
+      // Defensive: ensure requirements field is present
+      const specWithRequirements = {
+        ...specification,
+        requirements: specification.requirements || {
+          objective: specification.objective,
+          users: specification.users,
+          throughput: specification.throughput,
+          sla_target: specification.sla_target,
+          llm_provider: specification.llm_provider,
+          compliance: specification.compliance,
+          data_types: specification.data_types,
+          // ...add any other fields you expect
+        }
+      };
+
       // Call the generation API
       const { data, error } = await supabase.functions.invoke('generate-architecture', {
         body: {
           sessionId,
-          specification,
+          specification: specWithRequirements,
           generateAll: true
         }
       });

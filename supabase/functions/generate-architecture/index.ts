@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -49,7 +48,7 @@ DOMAIN: ${domain}
 Generate a YAML architecture blueprint with the following structure:
 
 \`\`\`yaml
-name: "${sessionData.objective?.slice(0, 50) || 'AI Solution'}"
+name: "${sessionData.requirements.objective?.slice(0, 50) || 'AI Solution'}"
 domain: "${domain}"
 services:
   - name: "api-gateway"
@@ -75,7 +74,7 @@ databases:
   - name: "primary-db"
     type: "PostgreSQL"
     purpose: "Main application data"
-    compliance_tags: ["${sessionData.compliance || 'STANDARD'}"]
+    compliance_tags: ["${sessionData.requirements.compliance || 'STANDARD'}"]
     schema:
       - table: "users"
         columns: ["id", "email", "created_at"]
@@ -96,11 +95,11 @@ infrastructure:
   cloud_provider: "GCP"
   regions: ["us-central1"]
   estimated_cost: 
-    monthly: "$${sessionData.budget?.replace(/[^0-9]/g, '') || '500'}"
+    monthly: "$${sessionData.requirements.budget?.replace(/[^0-9]/g, '') || '500'}"
   
 security:
   encryption: "at_rest_and_transit"
-  compliance: ["${sessionData.compliance || 'STANDARD'}"]
+  compliance: ["${sessionData.requirements.compliance || 'STANDARD'}"]
   access_control: "RBAC"
 \`\`\`
 
@@ -118,13 +117,14 @@ Focus on the specific domain requirements for ${domain}. Include relevant servic
 }
 
 async function generateTerraformModules(architecture: string, sessionData: any): Promise<any> {
+  const requirements = sessionData.requirements || {};
   const prompt = `You are IaCGenerator, an expert in Infrastructure as Code. Given the architecture YAML below, generate Terraform modules.
 
 ARCHITECTURE:
 ${architecture}
 
-SESSION DATA:
-${JSON.stringify(sessionData, null, 2)}
+REQUIREMENTS:
+${JSON.stringify(requirements, null, 2)}
 
 Generate Terraform code with the following files:
 
@@ -242,10 +242,11 @@ Include inline comments explaining each resource and ensure idempotency.`;
 }
 
 async function generateN8nWorkflow(sessionData: any, domain: string): Promise<any> {
+  const requirements = sessionData.requirements || {};
   const prompt = `You are WorkflowBuilder, an expert in n8n workflow automation. Generate an n8n workflow JSON for the ${domain} domain.
 
 REQUIREMENTS:
-${JSON.stringify(sessionData, null, 2)}
+${JSON.stringify(requirements, null, 2)}
 
 Create a workflow that includes:
 1. Data ingestion node
@@ -298,10 +299,11 @@ Return the n8n workflow JSON structure with proper node connections and configur
 }
 
 async function generateCICDTemplate(sessionData: any): Promise<string> {
+  const requirements = sessionData.requirements || {};
   const prompt = `You are CICDArchitect, an expert in CI/CD and GitOps. Generate a GitHub Actions workflow for deploying the AI platform.
 
 REQUIREMENTS:
-${JSON.stringify(sessionData, null, 2)}
+${JSON.stringify(requirements, null, 2)}
 
 Generate a comprehensive .github/workflows/ci.yml that includes:
 1. Linting (terraform fmt, eslint)
@@ -328,8 +330,24 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let sessionId, sessionData, domain, llmProvider;
   try {
-    const { sessionId, sessionData, domain, llmProvider = 'gemini' }: GenerateArchitectureRequest = await req.json();
+    const body = await req.json();
+    sessionId = body.sessionId;
+    sessionData = body.sessionData || body.specification;
+    domain = body.domain || body.specification?.domain;
+    llmProvider = body.llmProvider || body.specification?.llm_provider;
+
+    // Defensive check for sessionData and requirements
+    if (!sessionData || !sessionData.requirements) {
+      return new Response(JSON.stringify({
+        error: 'Invalid input: sessionData/specification or requirements missing',
+        debug: { sessionData }
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
     console.log('Generating architecture for session:', sessionId, 'domain:', domain);
 
@@ -443,10 +461,15 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Error generating architecture:', error);
+    // TEMP: Return error and input in HTTP response for debugging
     return new Response(JSON.stringify({ 
       error: 'Failed to generate architecture',
-      details: error.message 
+      details: error.message,
+      debug: {
+        error: String(error),
+        stack: error?.stack,
+        input: { sessionId, sessionData, domain, llmProvider }
+      }
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

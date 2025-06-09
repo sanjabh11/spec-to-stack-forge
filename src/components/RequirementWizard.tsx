@@ -159,9 +159,21 @@ export const RequirementWizard: React.FC<RequirementWizardProps> = ({ onComplete
     try {
       setLoading(true);
       
+      const requirements = {
+        objective: responses.objective,
+        users: responses.users,
+        throughput: responses.throughput,
+        sla_target: responses.sla_target,
+        llm_provider: responses.llm_provider,
+        compliance: responses.compliance,
+        data_types: responses.data_types,
+        // Add any other fields you collect in responses
+      };
+
       const specification = {
         domain: responses.domain,
         ...responses,
+        requirements,
         cost_estimate: costEstimate,
         compliance: responses.compliance || [],
         generated_at: new Date().toISOString()

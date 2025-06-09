@@ -28,6 +28,7 @@ import {
   Shield,
   Cpu
 } from "lucide-react";
+import { RequirementHistory } from '@/components/RequirementHistory';
 
 interface IndexProps {
   user: any;
@@ -40,6 +41,7 @@ const Index = ({ user, onLogout }: IndexProps) => {
   const [artifacts, setArtifacts] = useState(null);
   const [currentView, setCurrentView] = useState<'domains' | 'chat' | 'results' | 'deploy' | 'upload' | 'observability'>('domains');
   const [showHealthCheck, setShowHealthCheck] = useState(false);
+  const [restoredSession, setRestoredSession] = useState<any>(null);
 
   // Debug log for user prop
   console.log('Index page user prop:', user);
@@ -186,6 +188,19 @@ const Index = ({ user, onLogout }: IndexProps) => {
               </Card>
             </div>
             
+            {/* Project History - show all previous requirements */}
+            <div className="max-w-4xl mx-auto">
+              <RequirementHistory 
+                tenantId={user?.tenant_id}
+                onRestore={(session) => {
+                  setSessionData(session.session_data);
+                  setSelectedDomain(session.session_data?.domain || '');
+                  setCurrentView('chat');
+                  setRestoredSession(session);
+                }}
+              />
+            </div>
+            
             <DomainSelector 
               onSelect={(domain) => {
                 setSelectedDomain(domain);
@@ -199,6 +214,7 @@ const Index = ({ user, onLogout }: IndexProps) => {
           <ChatInterface 
             domain={selectedDomain} 
             onSessionComplete={handleSessionComplete}
+            restoredSession={restoredSession}
           />
         )}
 

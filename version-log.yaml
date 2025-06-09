@@ -1,0 +1,31 @@
+- version: 1.0
+  date: 2024-06-09
+  description: Added RequirementHistory component to dashboard, showing all previous requirement_sessions for the user/tenant. Integrated into Index.tsx for maximum discoverability.
+
+- version: 2.1
+  date: 2024-06-09
+  description: Refactored comprehensive-test-suite.py for pytest compatibility. All test methods now use pytest conventions and will be collected and run automatically. 
+
+- version: 2.2
+  date: 2024-06-09
+  description: Refactored comprehensive-test-suite.py to guarantee pytest compatibility. Added a minimal test and a real health check test. All test methods now follow pytest conventions and will be collected and run automatically. 
+
+- version: 2.3
+  date: 2024-06-09
+  description: Added dynamic JWT fetching for test user, moved credentials to config, renamed TestResult to ResultRecord, and skipped file existence tests for missing files. All tests now use a fresh JWT and are ready for CI/CD. 
+
+- version: 1.3
+  date: 2024-06-09
+  description: Added session restore functionality to RequirementHistory. Users can now restore a previous session as the active context for further actions (e.g., GitHub, 8n workflow) via a Restore button. 
+
+- version: 1.4
+  date: 2024-06-09
+  description: ChatInterface now supports restoring and displaying previous sessions, always showing the chat (not just results) with all previous Q&A and progress. This enables true session restoration from history. 
+
+- version: 1.5
+  date: 2024-06-09
+  description: Enhanced session restoration with visual cues for completed sessions, answer editing, jump-to-question, and interactive session summary. All changes are modular and reversible. 
+
+- version: 1.5.1
+  date: 2024-06-09
+  description: Fixed session restoration logic to use backend field mapping for all domains, ensuring all previous answers are shown correctly in the chat for restored sessions. Edit/jump features now work as intended for completed and in-progress sessions. 
