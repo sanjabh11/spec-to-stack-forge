@@ -1,0 +1,225 @@
+
+{
+  "name": "Finance Report Automation Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "finance-report-automation",
+        "options": {}
+      },
+      "id": "webhook-finance",
+      "name": "Finance Report Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Finance Report Processing\nconst items = $input.all();\nconst processedItems = [];\n\nfor (const item of items) {\n  const data = item.json;\n  \n  const processedItem = {\n    id: data.id || $node.uuid(),\n    report_type: data.report_type || 'financial_statement',\n    period: data.period || 'Q1_2024',\n    department: data.department || 'finance',\n    content: data.content || data.text || '',\n    financial_data: data.financial_data || {},\n    metadata: {\n      source: data.source || 'upload',\n      upload_date: new Date().toISOString(),\n      file_name: data.file_name || 'unknown',\n      file_size: data.file_size || 0,\n      confidentiality: 'high',\n      compliance_frameworks: ['SOX', 'GAAP']\n    },\n    namespace: 'finance_docs',\n    domain: 'finance'\n  };\n  \n  processedItems.push({ json: processedItem });\n}\n\nreturn processedItems;"
+      },
+      "id": "finance-processor",
+      "name": "Finance Report Processor",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://llamaindex-service:8002/ingest",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "documents",
+              "value": "={{$json}}"
+            },
+            {
+              "name": "namespace",
+              "value": "finance_docs"
+            },
+            {
+              "name": "domain",
+              "value": "finance"
+            }
+          ]
+        }
+      },
+      "id": "finance-ingest",
+      "name": "Finance Document Ingestion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://orchestration:8000/api/prompt-chains/execute",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chain_type",
+              "value": "document_analysis"
+            },
+            {
+              "name": "inputs",
+              "value": "={\"text\": \"{{$node['finance-processor'].json['content']}}\", \"report_type\": \"{{$node['finance-processor'].json['report_type']}}\", \"period\": \"{{$node['finance-processor'].json['period']}}\"}"
+            }
+          ]
+        }
+      },
+      "id": "finance-analysis",
+      "name": "Financial Analysis Chain",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$node['finance-analysis'].json['chain_results'][3]['result']['risk_score']}}",
+              "operation": "larger",
+              "value2": 75
+            }
+          ]
+        }
+      },
+      "id": "risk-assessment",
+      "name": "Risk Assessment Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "to": "cfo@company.com,risk@company.com",
+        "subject": "🚨 High Risk Financial Report Alert",
+        "text": "A financial report with high risk indicators has been processed.\n\nReport: {{$node['finance-processor'].json['metadata']['file_name']}}\nPeriod: {{$node['finance-processor'].json['period']}}\nRisk Score: {{$node['finance-analysis'].json['chain_results'][3]['result']['risk_score']}}\n\nPlease review immediately.",
+        "options": {}
+      },
+      "id": "email-alert",
+      "name": "High Risk Email Alert",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 1,
+      "position": [1340, 200],
+      "credentials": {
+        "gmail": "gmail-credentials"
+      }
+    },
+    {
+      "parameters": {
+        "statusCode": 200,
+        "body": "={\"status\": \"success\", \"message\": \"Finance report processed and analyzed\", \"document_id\": \"{{$node['finance-processor'].json['id']}}\", \"risk_score\": {{$node['finance-analysis'].json['chain_results'][3]['result']['risk_score']}}, \"timestamp\": \"{{new Date().toISOString()}}\"}"
+      },
+      "id": "finance-response",
+      "name": "Finance Processing Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1340, 400]
+    }
+  ],
+  "connections": {
+    "webhook-finance": {
+      "main": [
+        [
+          {
+            "node": "finance-processor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "finance-processor": {
+      "main": [
+        [
+          {
+            "node": "finance-ingest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "finance-ingest": {
+      "main": [
+        [
+          {
+            "node": "finance-analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "finance-analysis": {
+      "main": [
+        [
+          {
+            "node": "risk-assessment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "risk-assessment": {
+      "main": [
+        [
+          {
+            "node": "email-alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "finance-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "email-alert": {
+      "main": [
+        [
+          {
+            "node": "finance-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["finance", "automation", "risk-assessment"],
+  "meta": {
+    "instanceId": "finance_report_automation"
+  }
+}

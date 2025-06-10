@@ -1,0 +1,196 @@
+
+{
+  "name": "Legal Document Ingestion Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "legal-document-ingest",
+        "options": {}
+      },
+      "id": "webhook-legal",
+      "name": "Legal Document Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Legal Document Processing\nconst items = $input.all();\nconst processedItems = [];\n\nfor (const item of items) {\n  const data = item.json;\n  \n  // Extract legal document metadata\n  const processedItem = {\n    id: data.id || $node.uuid(),\n    document_type: data.document_type || 'contract',\n    jurisdiction: data.jurisdiction || 'US',\n    practice_area: data.practice_area || 'general',\n    client_matter: data.client_matter || '',\n    content: data.content || data.text || '',\n    metadata: {\n      source: data.source || 'upload',\n      upload_date: new Date().toISOString(),\n      file_name: data.file_name || 'unknown',\n      file_size: data.file_size || 0,\n      confidentiality_level: data.confidentiality_level || 'standard',\n      retention_period: data.retention_period || '7_years'\n    },\n    namespace: 'legal_docs',\n    domain: 'legal'\n  };\n  \n  processedItems.push({ json: processedItem });\n}\n\nreturn processedItems;"
+      },
+      "id": "legal-processor",
+      "name": "Legal Document Processor",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://llamaindex-service:8002/ingest",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "documents",
+              "value": "={{$json}}"
+            },
+            {
+              "name": "namespace",
+              "value": "legal_docs"
+            },
+            {
+              "name": "domain",
+              "value": "legal"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "llamaindex-ingest",
+      "name": "LlamaIndex Ingestion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "resource": "Row",
+        "operation": "insert",
+        "table": "documents",
+        "schema": "public",
+        "columns": "id,name,user_id,storage_path,status,analysis_results,created_at,updated_at",
+        "values": "={{$node['legal-processor'].json['id']}},{{$node['legal-processor'].json['metadata']['file_name']}},{{$node['webhook-legal'].json['user_id'] || 'system'}},{{$node['legal-processor'].json['metadata']['source']}},ingested,{{$node['legal-processor'].json}},{{$node['legal-processor'].json['metadata']['upload_date']}},{{$node['legal-processor'].json['metadata']['upload_date']}}"
+      },
+      "id": "supabase-store",
+      "name": "Store in Supabase",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [900, 300],
+      "credentials": {
+        "supabaseApi": "supabase-credentials"
+      }
+    },
+    {
+      "parameters": {
+        "url": "http://orchestration:8000/api/workflow/trigger",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "workflow_id",
+              "value": "legal_analysis_pipeline"
+            },
+            {
+              "name": "inputs",
+              "value": "={{$node['legal-processor'].json}}"
+            },
+            {
+              "name": "tenant_id",
+              "value": "legal_firm_001"
+            }
+          ]
+        }
+      },
+      "id": "trigger-analysis",
+      "name": "Trigger Legal Analysis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "statusCode": 200,
+        "body": "={\"status\": \"success\", \"message\": \"Legal document processed and ingested\", \"document_id\": \"{{$node['legal-processor'].json['id']}}\", \"timestamp\": \"{{new Date().toISOString()}}\"}"
+      },
+      "id": "response",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1340, 300]
+    }
+  ],
+  "connections": {
+    "webhook-legal": {
+      "main": [
+        [
+          {
+            "node": "legal-processor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "legal-processor": {
+      "main": [
+        [
+          {
+            "node": "llamaindex-ingest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "llamaindex-ingest": {
+      "main": [
+        [
+          {
+            "node": "supabase-store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "supabase-store": {
+      "main": [
+        [
+          {
+            "node": "trigger-analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "trigger-analysis": {
+      "main": [
+        [
+          {
+            "node": "response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["legal", "document-ingestion", "RAG"],
+  "meta": {
+    "instanceId": "legal_document_ingestion"
+  }
+}

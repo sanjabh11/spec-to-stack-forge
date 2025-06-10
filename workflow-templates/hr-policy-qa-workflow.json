@@ -1,0 +1,206 @@
+
+{
+  "name": "HR Policy Q&A Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "hr-qa",
+        "options": {}
+      },
+      "id": "webhook-hr-qa",
+      "name": "HR Q&A Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// HR Q&A Processing\nconst items = $input.all();\nconst processedItems = [];\n\nfor (const item of items) {\n  const data = item.json;\n  \n  const processedItem = {\n    query: data.question || data.query,\n    employee_id: data.employee_id || 'anonymous',\n    department: data.department || 'general',\n    urgency: data.urgency || 'normal',\n    category: data.category || 'policy',\n    timestamp: new Date().toISOString(),\n    session_id: data.session_id || $node.uuid(),\n    namespace: 'hr_policy_docs',\n    domain: 'hr'\n  };\n  \n  processedItems.push({ json: processedItem });\n}\n\nreturn processedItems;"
+      },
+      "id": "hr-qa-processor",
+      "name": "HR Q&A Processor",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://orchestration:8000/api/rag/enhanced-query",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{$node['hr-qa-processor'].json['query']}}"
+            },
+            {
+              "name": "domain",
+              "value": "hr"
+            },
+            {
+              "name": "namespace",
+              "value": "hr_policy_docs"
+            },
+            {
+              "name": "top_k",
+              "value": "5"
+            },
+            {
+              "name": "use_llm",
+              "value": "true"
+            }
+          ]
+        }
+      },
+      "id": "rag-query",
+      "name": "RAG Query",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$node['hr-qa-processor'].json['urgency']}}",
+              "operation": "equal",
+              "value2": "high"
+            }
+          ]
+        }
+      },
+      "id": "urgency-check",
+      "name": "Check Urgency",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "🚨 High Priority HR Question: {{$node['hr-qa-processor'].json['query']}} - From: {{$node['hr-qa-processor'].json['employee_id']}}"
+            },
+            {
+              "name": "channel",
+              "value": "#hr-urgent"
+            }
+          ]
+        }
+      },
+      "id": "slack-urgent",
+      "name": "Slack Urgent Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1120, 200]
+    },
+    {
+      "parameters": {
+        "statusCode": 200,
+        "body": "={\"status\": \"success\", \"answer\": {{$node['rag-query'].json['enhanced_answer']}}, \"confidence\": {{$node['rag-query'].json['confidence']}}, \"session_id\": \"{{$node['hr-qa-processor'].json['session_id']}}\", \"timestamp\": \"{{new Date().toISOString()}}\"}"
+      },
+      "id": "response-hr",
+      "name": "HR Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1120, 400]
+    }
+  ],
+  "connections": {
+    "webhook-hr-qa": {
+      "main": [
+        [
+          {
+            "node": "hr-qa-processor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "hr-qa-processor": {
+      "main": [
+        [
+          {
+            "node": "rag-query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "rag-query": {
+      "main": [
+        [
+          {
+            "node": "urgency-check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "urgency-check": {
+      "main": [
+        [
+          {
+            "node": "slack-urgent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "response-hr",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "slack-urgent": {
+      "main": [
+        [
+          {
+            "node": "response-hr",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["hr", "qa", "slack-integration"],
+  "meta": {
+    "instanceId": "hr_policy_qa"
+  }
+}
