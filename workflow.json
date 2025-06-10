@@ -1,0 +1,89 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "document-ingest"
+      },
+      "id": "Webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [300, 200]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Optionally transform or validate incoming data\nreturn [{\n  json: {\n    id: $item(0).$jmespath(\"$[0].json.id || uuid()\"),\n    name: $item(0).$jmespath(\"$[0].json.name || 'Untitled Document'\"),\n    storage_path: $item(0).$jmespath(\"$[0].json.storage_path || ''\"),\n    user_id: $item(0).$jmespath(\"$[0].json.user_id || uuid()\"),\n    status: $item(0).$jmespath(\"$[0].json.status || 'pending'\"),\n    analysis_results: $item(0).$jmespath(\"$[0].json.analysis_results || {}\"),\n    created_at: new Date().toISOString(),\n    updated_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "Set",
+      "name": "Set/Transform Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [600, 200]
+    },
+    {
+      "parameters": {
+        "resource": "Row",
+        "operation": "insert",
+        "table": "documents",
+        "schema": "public",
+        "columns": "id,name,storage_path,user_id,status,analysis_results,created_at,updated_at",
+        "values": "={{$json[\"id\"]}},{{$json[\"name\"]}},{{$json[\"storage_path\"]}},{{$json[\"user_id\"]}},{{$json[\"status\"]}},{{$json[\"analysis_results\"]}},{{$json[\"created_at\"]}},{{$json[\"updated_at\"]}}"
+      },
+      "id": "Supabase",
+      "name": "Supabase Insert",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [900, 200],
+      "credentials": {
+        "supabaseApi": "Supabase Name"
+      }
+    },
+    {
+      "parameters": {
+        "statusCode": 200,
+        "body": "Document received and stored."
+      },
+      "id": "Respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1200, 200]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set/Transform Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set/Transform Data": {
+      "main": [
+        [
+          {
+            "node": "Supabase Insert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Insert": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

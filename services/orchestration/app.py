@@ -8,6 +8,7 @@ import json
 import os
 from datetime import datetime
 import logging
+from supabase import create_client, Client
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -32,6 +33,8 @@ SERVICES = {
     "monitoring": os.getenv("MONITORING_URL", "http://grafana:3000")
 }
 
+N8N_API_KEY = os.getenv("N8N_API_KEY")
+
 # Request/Response Models
 class SpecBuilderRequest(BaseModel):
     domain: str
@@ -52,9 +55,102 @@ class WorkflowRequest(BaseModel):
 
 class RAGRequest(BaseModel):
     query: str
-    namespace: str
-    top_k: int = 5
-    use_llm: bool = True
+    domain: Optional[str] = "default"
+    namespace: Optional[str] = "default"
+    top_k: Optional[int] = 3
+    use_llm: Optional[bool] = True
+
+# Supabase initialization
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+supabase: Client = None
+if SUPABASE_URL and SUPABASE_SERVICE_KEY:
+    try:
+        supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+        logger.info("Supabase client initialized.")
+    except Exception as e:
+        logger.error(f"Failed to initialize Supabase client: {e}")
+        supabase = None
+else:
+    logger.warning("Supabase URL or Service Key not set. Falling back to in-code config.")
+
+# Domain-specific system prompts
+SYSTEM_PROMPTS = {
+    "legal": "You are a highly astute AI legal assistant. Your expertise lies in analyzing legal documents, case law, contracts, and filings. You are precise, objective, and always maintain confidentiality. When answering questions or summarizing, refer explicitly to the provided context. Avoid speculation and clearly state if the provided information is insufficient to answer. Your tone should be formal and professional.",
+    "finance": "You are an expert AI financial analyst and auditor. You specialize in interpreting financial reports, audit logs, and regulatory compliance documents. You are meticulous, detail-oriented, and prioritize accuracy above all. When analyzing data, highlight key figures, trends, and potential risks. Your responses should be data-driven and clearly articulated for a financial professional audience.",
+    "hr_policy": "You are a helpful and knowledgeable AI HR assistant. Your role is to provide clear and accurate information about company policies, benefits, and procedures based on the official HR documents. You are empathetic, patient, and maintain a supportive tone. Ensure employee privacy is respected. If a question falls outside the scope of the provided documents, politely state that.",
+    "customer_support": "You are a friendly and efficient AI customer support specialist. Your goal is to help users resolve their issues and understand product features by referencing the official knowledge base. Provide clear, step-by-step instructions when possible. Be patient and understanding. If a query cannot be resolved with the provided information, suggest escalating to a human agent.",
+    "engineering_docs": "You are an AI research and engineering assistant with deep technical understanding. You specialize in parsing and synthesizing information from patents, design documents, and technical specifications. Provide precise and detailed answers, explaining complex concepts clearly. When summarizing, focus on key innovations, methodologies, and results.",
+    "compliance_audit": "You are an AI compliance and audit specialist. Your function is to meticulously analyze regulatory texts, internal policies, and audit documents. You are thorough, objective, and pay close attention to detail. Identify discrepancies, summarize requirements, and help locate specific information relevant to compliance and audit tasks.",
+    "marketing_insights": "You are a creative and analytical AI marketing assistant. You excel at deriving insights from market research, understanding brand guidelines, and generating innovative content ideas. Your tone should be engaging and insightful. When analyzing data, focus on actionable insights for marketing strategy and content creation.",
+    "operations_maintenance": "You are an AI operations and maintenance support specialist. You are adept at interpreting technical manuals, sensor logs, and Standard Operating Procedures to assist with troubleshooting and operational efficiency. Provide clear, practical, and step-by-step guidance. Focus on safety and adherence to procedures.",
+    "sales_support": "You are an AI sales support assistant. Your role is to help the sales team by summarizing client interactions, drafting proposals, retrieving relevant client history, and providing quick access to product information. You are efficient, organized, and focused on enabling sales success. Ensure all customer data is handled with confidentiality.",
+    "healthcare_pharma": "You are an AI assistant for healthcare and pharmaceutical professionals. You process and summarize clinical information, trial data, and medical literature with a high degree of accuracy and adherence to privacy principles (e.g., HIPAA). Your responses should be based strictly on the provided medical context. Clearly state if information is not available in the context. Your tone is professional and objective.",
+    "default": "You are a helpful AI assistant. Answer the question based on the provided context."
+}
+# In a production system, consider loading this from a config file (e.g., JSON, YAML)
+
+# Default model per domain (can be extended)
+DEFAULT_MODELS = {
+    "legal": "llama3-70b",
+    "finance": "llama3-70b",
+    "hr_policy": "llama3-70b",
+    "customer_support": "llama3-70b",
+    "engineering_docs": "llama3-70b",
+    "compliance_audit": "llama3-70b",
+    "marketing_insights": "llama3-70b",
+    "operations_maintenance": "llama3-70b",
+    "sales_support": "llama3-70b",
+    "healthcare_pharma": "llama3-70b",
+    "default": "llama3-70b"
+}
+
+# Default namespace per domain
+DEFAULT_NAMESPACES = {
+    "legal": "legal_docs",
+    "finance": "finance_docs",
+    "hr_policy": "hr_policy_docs",
+    "customer_support": "customer_support_docs",
+    "engineering_docs": "engineering_docs",
+    "compliance_audit": "compliance_audit_docs",
+    "marketing_insights": "marketing_insights_docs",
+    "operations_maintenance": "operations_maintenance_docs",
+    "sales_support": "sales_support_docs",
+    "healthcare_pharma": "healthcare_pharma_docs",
+    "default": "default_docs"
+}
+
+# Utility function to fetch domain config from Supabase
+
+def get_domain_config(domain: str):
+    """
+    Fetch namespace, system_prompt, and default_model for a domain from Supabase.
+    Fallback to in-code config if Supabase is unavailable or domain not found.
+    """
+    # Fallbacks
+    system_prompt = SYSTEM_PROMPTS.get(domain, SYSTEM_PROMPTS["default"])
+    namespace = DEFAULT_NAMESPACES.get(domain, DEFAULT_NAMESPACES["default"])
+    model = DEFAULT_MODELS.get(domain, DEFAULT_MODELS["default"])
+    if not supabase:
+        logger.warning(f"Supabase not available. Using defaults for domain '{domain}'.")
+        return {"system_prompt": system_prompt, "namespace": namespace, "model": model}
+    try:
+        response = supabase.table("domains").select("namespace,system_prompt,default_model").eq("name", domain).execute()
+        if response.data and len(response.data) > 0:
+            row = response.data[0]
+            logger.info(f"Fetched domain config for '{domain}' from Supabase.")
+            return {
+                "system_prompt": row.get("system_prompt", system_prompt),
+                "namespace": row.get("namespace", namespace),
+                "model": row.get("default_model", model)
+            }
+        else:
+            logger.warning(f"Domain '{domain}' not found in Supabase. Using defaults.")
+            return {"system_prompt": system_prompt, "namespace": namespace, "model": model}
+    except Exception as e:
+        logger.error(f"Error fetching domain config from Supabase: {e}. Using defaults.")
+        return {"system_prompt": system_prompt, "namespace": namespace, "model": model}
+
 
 # Authentication & RBAC (placeholder for enterprise)
 async def get_current_user():
@@ -78,6 +174,46 @@ async def health_check():
                 service_status[service] = "unreachable"
     
     return {"status": "ok", "services": service_status, "timestamp": datetime.utcnow()}
+
+@app.post("/api/workflow/trigger", status_code=202)
+async def trigger_n8n_workflow(
+    request: WorkflowRequest,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Triggers a specific N8N workflow by its ID.
+    """
+    logger.info(f"Received request to trigger N8N workflow: {request.workflow_id} for tenant: {request.tenant_id}")
+
+    if not N8N_API_KEY:
+        logger.error("N8N_API_KEY is not configured.")
+        raise HTTPException(status_code=500, detail="N8N integration is not configured.")
+
+    n8n_url = f"{SERVICES['n8n']}/api/v1/workflows/{request.workflow_id}/executions"
+    headers = {"X-N8N-API-Key": N8N_API_KEY}
+    
+    workflow_payload = request.inputs.copy()
+    workflow_payload.update({
+        "tenant_id": request.tenant_id,
+        "user_id": user.get("user_id")
+    })
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(n8n_url, headers=headers, json=workflow_payload, timeout=30.0)
+            response.raise_for_status()
+        
+        logger.info(f"Successfully triggered N8N workflow {request.workflow_id}. Response: {response.json()}")
+        return {"message": "Workflow triggered successfully", "execution_data": response.json()}
+    except httpx.HTTPStatusError as e:
+        logger.error(f"HTTP error triggering N8N workflow {request.workflow_id}: {e.response.status_code} - {e.response.text}")
+        raise HTTPException(status_code=e.response.status_code, detail=f"Error from N8N: {e.response.text}")
+    except httpx.RequestError as e:
+        logger.error(f"Request error triggering N8N workflow {request.workflow_id}: {e}")
+        raise HTTPException(status_code=503, detail=f"Could not connect to N8N service: {e}")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while triggering N8N workflow {request.workflow_id}: {e}")
+        raise HTTPException(status_code=500, detail="An unexpected error occurred.")
 
 # Spec Builder Wizard Logic
 @app.post("/api/spec-builder/process")
@@ -220,12 +356,18 @@ async def enhanced_rag_query(
     """Enhanced RAG query with LLM integration"""
     try:
         # Step 1: Retrieve from vector store
+        # Fetch config for the requested domain
+        domain_config = get_domain_config(request.domain)
+        namespace = domain_config["namespace"]
+        system_prompt = domain_config["system_prompt"]
+        model = domain_config["model"]
+
         async with httpx.AsyncClient() as client:
             rag_response = await client.post(
                 f"{SERVICES['llamaindex']}/search",
                 json={
                     "query": request.query,
-                    "namespace": request.namespace,
+                    "namespace": namespace,
                     "top_k": request.top_k
                 }
             )
@@ -248,8 +390,9 @@ Answer:"""
                 f"{SERVICES['llm_inference']}/generate",
                 json={
                     "prompt": enhanced_prompt,
+                    "system_prompt": system_prompt,
                     "max_tokens": 512,
-                    "model": "llama3-70b"
+                    "model": model
                 }
             )
             llm_result = llm_response.json()
