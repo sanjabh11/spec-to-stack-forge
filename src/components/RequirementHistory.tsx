@@ -1,43 +1,80 @@
+
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
-export function RequirementHistory({ tenantId, onRestore }: { tenantId?: string, onRestore?: (session: any) => void }) {
-  const [sessions, setSessions] = useState<any[]>([]);
+interface RequirementSession {
+  id: string;
+  tenant_id?: string;
+  session_data: any;
+  status: string;
+  created_at: string;
+}
+
+interface RequirementHistoryProps {
+  tenantId?: string;
+  onRestore?: (session: RequirementSession) => void;
+}
+
+export function RequirementHistory({ tenantId, onRestore }: RequirementHistoryProps) {
+  const [sessions, setSessions] = useState<RequirementSession[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
-  const [sessionToDelete, setSessionToDelete] = useState<any>(null);
+  const [sessionToDelete, setSessionToDelete] = useState<RequirementSession | null>(null);
 
   useEffect(() => {
     async function fetchSessions() {
       setLoading(true);
       setError(null);
-      let query: any = supabase.from('requirement_sessions').select('*').order('created_at', { ascending: false });
-      if (tenantId) query = query.eq('tenant_id', tenantId);
-      const { data, error } = await query;
-      if (error) setError(error.message);
-      else setSessions(data ?? []);
-      setLoading(false);
+      
+      try {
+        let query = supabase.from('requirement_sessions').select('*').order('created_at', { ascending: false });
+        
+        if (tenantId) {
+          query = query.eq('tenant_id', tenantId);
+        }
+        
+        const { data, error } = await query;
+        
+        if (error) {
+          setError(error.message);
+        } else {
+          setSessions(data || []);
+        }
+      } catch (err) {
+        setError('Failed to fetch sessions');
+      } finally {
+        setLoading(false);
+      }
     }
+    
     fetchSessions();
   }, [tenantId]);
 
   const handleDeleteSession = async (sessionId: string) => {
-    await supabase.from('requirement_sessions').delete().eq('id', sessionId);
-    setSessions(sessions.filter((s) => s.id !== sessionId));
-    setDeleteDialogOpen(false);
-    setSessionToDelete(null);
+    try {
+      await supabase.from('requirement_sessions').delete().eq('id', sessionId);
+      setSessions(sessions.filter((s) => s.id !== sessionId));
+      setDeleteDialogOpen(false);
+      setSessionToDelete(null);
+    } catch (err) {
+      setError('Failed to delete session');
+    }
   };
 
   const handleDeleteAll = async () => {
-    if (tenantId) {
-      await supabase.from('requirement_sessions').delete().eq('tenant_id', tenantId);
-      setSessions([]);
+    try {
+      if (tenantId) {
+        await supabase.from('requirement_sessions').delete().eq('tenant_id', tenantId);
+        setSessions([]);
+      }
+      setDeleteAllDialogOpen(false);
+    } catch (err) {
+      setError('Failed to delete all sessions');
     }
-    setDeleteAllDialogOpen(false);
   };
 
   return (
@@ -93,6 +130,7 @@ export function RequirementHistory({ tenantId, onRestore }: { tenantId?: string,
             </li>
           ))}
         </ul>
+        
         <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
           <DialogContent>
             <DialogHeader>
@@ -114,6 +152,7 @@ export function RequirementHistory({ tenantId, onRestore }: { tenantId?: string,
             )}
           </DialogContent>
         </Dialog>
+        
         <Dialog open={deleteAllDialogOpen} onOpenChange={setDeleteAllDialogOpen}>
           <DialogContent>
             <DialogHeader>
@@ -134,4 +173,4 @@ export function RequirementHistory({ tenantId, onRestore }: { tenantId?: string,
       </CardContent>
     </Card>
   );
-} 
+}
