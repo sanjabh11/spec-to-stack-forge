@@ -6,10 +6,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 
 interface RequirementSession {
   id: string;
-  tenant_id?: string;
+  project_id?: string;
+  domain: string;
   session_data: any;
   status: string;
   created_at: string;
+  updated_at: string;
 }
 
 interface RequirementHistoryProps {
@@ -34,7 +36,7 @@ export function RequirementHistory({ tenantId, onRestore }: RequirementHistoryPr
         let query = supabase.from('requirement_sessions').select('*').order('created_at', { ascending: false });
         
         if (tenantId) {
-          query = query.eq('tenant_id', tenantId);
+          query = query.eq('project_id', tenantId);
         }
         
         const { data, error: queryError } = await query;
@@ -42,12 +44,14 @@ export function RequirementHistory({ tenantId, onRestore }: RequirementHistoryPr
         if (queryError) {
           setError(queryError.message);
         } else if (data) {
-          const transformedSessions = data.map(item => ({
+          const transformedSessions: RequirementSession[] = data.map((item) => ({
             id: item.id,
-            tenant_id: item.tenant_id,
+            project_id: item.project_id,
+            domain: item.domain || 'Unknown',
             session_data: item.session_data || {},
             status: item.status,
-            created_at: item.created_at
+            created_at: item.created_at,
+            updated_at: item.updated_at
           }));
           setSessions(transformedSessions);
         }
@@ -75,7 +79,7 @@ export function RequirementHistory({ tenantId, onRestore }: RequirementHistoryPr
   const handleDeleteAll = async () => {
     try {
       if (tenantId) {
-        await supabase.from('requirement_sessions').delete().eq('tenant_id', tenantId);
+        await supabase.from('requirement_sessions').delete().eq('project_id', tenantId);
         setSessions([]);
       }
       setDeleteAllDialogOpen(false);
@@ -108,7 +112,7 @@ export function RequirementHistory({ tenantId, onRestore }: RequirementHistoryPr
             <li key={session.id} className={`py-2 flex flex-col md:flex-row md:items-center md:justify-between ${session.status === 'generated' ? 'bg-green-50' : ''}`}>
               <div className="flex items-center gap-2">
                 <span className="font-semibold">
-                  {session.session_data?.domain || 'Unknown'}
+                  {session.domain}
                 </span>
                 <span className="ml-2 text-gray-500 text-sm">{new Date(session.created_at).toLocaleString()}</span>
                 {session.status === 'generated' && (
