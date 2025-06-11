@@ -1,0 +1,225 @@
+
+{
+  "name": "Compliance Monitoring Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "compliance-monitoring",
+        "options": {}
+      },
+      "id": "webhook-compliance",
+      "name": "Compliance Monitoring Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Compliance Monitoring Processing\nconst items = $input.all();\nconst processedItems = [];\n\nfor (const item of items) {\n  const data = item.json;\n  \n  const processedItem = {\n    id: data.id || $node.uuid(),\n    regulation_type: data.regulation_type || 'general',\n    jurisdiction: data.jurisdiction || 'US',\n    compliance_area: data.compliance_area || 'data_privacy',\n    document_content: data.document_content || data.content || '',\n    audit_scope: data.audit_scope || 'operational',\n    metadata: {\n      source: data.source || 'compliance_submission',\n      submission_date: new Date().toISOString(),\n      department: data.department || 'compliance',\n      risk_category: data.risk_category || 'medium',\n      regulatory_framework: data.regulatory_framework || ['GDPR', 'SOX']\n    },\n    namespace: 'compliance_docs',\n    domain: 'compliance'\n  };\n  \n  processedItems.push({ json: processedItem });\n}\n\nreturn processedItems;"
+      },
+      "id": "compliance-processor",
+      "name": "Compliance Document Processor",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://llamaindex-service:8002/ingest",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "documents",
+              "value": "={{$json}}"
+            },
+            {
+              "name": "namespace",
+              "value": "compliance_docs"
+            },
+            {
+              "name": "domain",
+              "value": "compliance"
+            }
+          ]
+        }
+      },
+      "id": "compliance-ingest",
+      "name": "Compliance Document Ingestion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://orchestration:8000/api/prompt-chains/execute",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chain_type",
+              "value": "compliance_analysis"
+            },
+            {
+              "name": "inputs",
+              "value": "={\"content\": \"{{$node['compliance-processor'].json['document_content']}}\", \"regulation_type\": \"{{$node['compliance-processor'].json['regulation_type']}}\", \"jurisdiction\": \"{{$node['compliance-processor'].json['jurisdiction']}}\", \"compliance_area\": \"{{$node['compliance-processor'].json['compliance_area']}}\"}"
+            }
+          ]
+        }
+      },
+      "id": "compliance-analysis",
+      "name": "Compliance Analysis Chain",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$node['compliance-analysis'].json['chain_results'][3]['result']['risk_score']}}",
+              "operation": "larger",
+              "value2": 70
+            }
+          ]
+        }
+      },
+      "id": "risk-threshold-check",
+      "name": "High Risk Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "to": "compliance@company.com,legal@company.com",
+        "subject": "🚨 High Risk Compliance Issue Detected",
+        "text": "A high risk compliance issue requires immediate attention:\n\nRegulation: {{$node['compliance-processor'].json['regulation_type']}}\nJurisdiction: {{$node['compliance-processor'].json['jurisdiction']}}\nRisk Score: {{$node['compliance-analysis'].json['chain_results'][3]['result']['risk_score']}}\nCompliance Area: {{$node['compliance-processor'].json['compliance_area']}}\n\nImmediate review and remediation required.",
+        "options": {}
+      },
+      "id": "compliance-alert",
+      "name": "High Risk Compliance Alert",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 1,
+      "position": [1340, 200],
+      "credentials": {
+        "gmail": "gmail-credentials"
+      }
+    },
+    {
+      "parameters": {
+        "statusCode": 200,
+        "body": "={\"status\": \"success\", \"message\": \"Compliance monitoring completed\", \"document_id\": \"{{$node['compliance-processor'].json['id']}}\", \"risk_score\": {{$node['compliance-analysis'].json['chain_results'][3]['result']['risk_score']}}, \"high_risk_alert\": {{$node['risk-threshold-check'].json ? 'true' : 'false'}}, \"timestamp\": \"{{new Date().toISOString()}}\"}"
+      },
+      "id": "compliance-response",
+      "name": "Compliance Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1340, 400]
+    }
+  ],
+  "connections": {
+    "webhook-compliance": {
+      "main": [
+        [
+          {
+            "node": "compliance-processor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "compliance-processor": {
+      "main": [
+        [
+          {
+            "node": "compliance-ingest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "compliance-ingest": {
+      "main": [
+        [
+          {
+            "node": "compliance-analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "compliance-analysis": {
+      "main": [
+        [
+          {
+            "node": "risk-threshold-check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "risk-threshold-check": {
+      "main": [
+        [
+          {
+            "node": "compliance-alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "compliance-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "compliance-alert": {
+      "main": [
+        [
+          {
+            "node": "compliance-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["compliance", "monitoring", "risk-assessment"],
+  "meta": {
+    "instanceId": "compliance_monitoring"
+  }
+}

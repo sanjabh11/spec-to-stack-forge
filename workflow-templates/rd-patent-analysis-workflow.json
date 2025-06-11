@@ -1,0 +1,225 @@
+
+{
+  "name": "R&D Patent Analysis Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "rd-patent-analysis",
+        "options": {}
+      },
+      "id": "webhook-rd",
+      "name": "R&D Patent Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// R&D Patent Analysis Processing\nconst items = $input.all();\nconst processedItems = [];\n\nfor (const item of items) {\n  const data = item.json;\n  \n  const processedItem = {\n    id: data.id || $node.uuid(),\n    innovation_type: data.innovation_type || 'technology',\n    description: data.description || data.content || '',\n    inventor_team: data.inventor_team || [],\n    research_area: data.research_area || 'general',\n    priority_level: data.priority_level || 'medium',\n    metadata: {\n      source: data.source || 'research_submission',\n      submission_date: new Date().toISOString(),\n      project_code: data.project_code || 'unknown',\n      confidentiality_level: data.confidentiality_level || 'internal',\n      patent_search_required: data.patent_search_required || true\n    },\n    namespace: 'rd_patent_docs',\n    domain: 'r_and_d'\n  };\n  \n  processedItems.push({ json: processedItem });\n}\n\nreturn processedItems;"
+      },
+      "id": "rd-processor",
+      "name": "R&D Patent Processor",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://llamaindex-service:8002/ingest",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "documents",
+              "value": "={{$json}}"
+            },
+            {
+              "name": "namespace",
+              "value": "rd_patent_docs"
+            },
+            {
+              "name": "domain",
+              "value": "r_and_d"
+            }
+          ]
+        }
+      },
+      "id": "patent-ingest",
+      "name": "Patent Document Ingestion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://orchestration:8000/api/prompt-chains/execute",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chain_type",
+              "value": "patent_analysis"
+            },
+            {
+              "name": "inputs",
+              "value": "={\"description\": \"{{$node['rd-processor'].json['description']}}\", \"innovation_type\": \"{{$node['rd-processor'].json['innovation_type']}}\", \"research_area\": \"{{$node['rd-processor'].json['research_area']}}\"}"
+            }
+          ]
+        }
+      },
+      "id": "patent-analysis",
+      "name": "Patent Analysis Chain",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$node['patent-analysis'].json['chain_results'][2]['result']['novelty_score']}}",
+              "operation": "larger",
+              "value2": 80
+            }
+          ]
+        }
+      },
+      "id": "novelty-check",
+      "name": "High Novelty Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "to": "patents@company.com,cto@company.com",
+        "subject": "🚀 High Novelty Innovation Detected",
+        "text": "A high novelty innovation has been identified for potential patent filing:\n\nProject: {{$node['rd-processor'].json['metadata']['project_code']}}\nInnovation: {{$node['rd-processor'].json['innovation_type']}}\nNovelty Score: {{$node['patent-analysis'].json['chain_results'][2]['result']['novelty_score']}}\nInventors: {{$node['rd-processor'].json['inventor_team']}}\n\nRecommended for patent application review.",
+        "options": {}
+      },
+      "id": "patent-alert",
+      "name": "Patent Filing Alert",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 1,
+      "position": [1340, 200],
+      "credentials": {
+        "gmail": "gmail-credentials"
+      }
+    },
+    {
+      "parameters": {
+        "statusCode": 200,
+        "body": "={\"status\": \"success\", \"message\": \"Patent analysis completed\", \"analysis_id\": \"{{$node['rd-processor'].json['id']}}\", \"novelty_score\": {{$node['patent-analysis'].json['chain_results'][2]['result']['novelty_score']}}, \"patent_recommended\": {{$node['novelty-check'].json ? 'true' : 'false'}}, \"timestamp\": \"{{new Date().toISOString()}}\"}"
+      },
+      "id": "rd-response",
+      "name": "R&D Analysis Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1340, 400]
+    }
+  ],
+  "connections": {
+    "webhook-rd": {
+      "main": [
+        [
+          {
+            "node": "rd-processor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "rd-processor": {
+      "main": [
+        [
+          {
+            "node": "patent-ingest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "patent-ingest": {
+      "main": [
+        [
+          {
+            "node": "patent-analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "patent-analysis": {
+      "main": [
+        [
+          {
+            "node": "novelty-check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "novelty-check": {
+      "main": [
+        [
+          {
+            "node": "patent-alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "rd-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "patent-alert": {
+      "main": [
+        [
+          {
+            "node": "rd-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["r-and-d", "patent-analysis", "innovation"],
+  "meta": {
+    "instanceId": "rd_patent_analysis"
+  }
+}

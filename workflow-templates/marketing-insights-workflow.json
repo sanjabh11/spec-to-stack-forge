@@ -1,0 +1,225 @@
+
+{
+  "name": "Marketing Intelligence Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "marketing-insights",
+        "options": {}
+      },
+      "id": "webhook-marketing",
+      "name": "Marketing Intelligence Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Marketing Intelligence Processing\nconst items = $input.all();\nconst processedItems = [];\n\nfor (const item of items) {\n  const data = item.json;\n  \n  const processedItem = {\n    id: data.id || $node.uuid(),\n    campaign_type: data.campaign_type || 'market_research',\n    target_market: data.target_market || 'B2B',\n    content_type: data.content_type || 'competitive_analysis',\n    market_data: data.market_data || data.content || '',\n    analysis_scope: data.analysis_scope || 'competitive',\n    metadata: {\n      source: data.source || 'market_research',\n      collection_date: new Date().toISOString(),\n      geographic_scope: data.geographic_scope || 'US',\n      industry_vertical: data.industry_vertical || 'technology',\n      confidence_level: data.confidence_level || 'medium'\n    },\n    namespace: 'marketing_docs',\n    domain: 'marketing'\n  };\n  \n  processedItems.push({ json: processedItem });\n}\n\nreturn processedItems;"
+      },
+      "id": "marketing-processor",
+      "name": "Marketing Data Processor",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://llamaindex-service:8002/ingest",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "documents",
+              "value": "={{$json}}"
+            },
+            {
+              "name": "namespace",
+              "value": "marketing_docs"
+            },
+            {
+              "name": "domain",
+              "value": "marketing"
+            }
+          ]
+        }
+      },
+      "id": "marketing-ingest",
+      "name": "Marketing Data Ingestion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://orchestration:8000/api/prompt-chains/execute",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chain_type",
+              "value": "marketing_analysis"
+            },
+            {
+              "name": "inputs",
+              "value": "={\"content\": \"{{$node['marketing-processor'].json['market_data']}}\", \"campaign_type\": \"{{$node['marketing-processor'].json['campaign_type']}}\", \"target_market\": \"{{$node['marketing-processor'].json['target_market']}}\", \"content_type\": \"{{$node['marketing-processor'].json['content_type']}}\"}"
+            }
+          ]
+        }
+      },
+      "id": "marketing-analysis",
+      "name": "Marketing Analysis Chain",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$node['marketing-analysis'].json['chain_results'][2]['result']['opportunity_score']}}",
+              "operation": "larger",
+              "value2": 75
+            }
+          ]
+        }
+      },
+      "id": "opportunity-check",
+      "name": "High Opportunity Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "to": "marketing@company.com,strategy@company.com",
+        "subject": "🎯 High Opportunity Market Insight",
+        "text": "A high opportunity market insight has been identified:\n\nCampaign: {{$node['marketing-processor'].json['campaign_type']}}\nTarget Market: {{$node['marketing-processor'].json['target_market']}}\nOpportunity Score: {{$node['marketing-analysis'].json['chain_results'][2]['result']['opportunity_score']}}\nIndustry: {{$node['marketing-processor'].json['metadata']['industry_vertical']}}\n\nRecommended for immediate strategic consideration.",
+        "options": {}
+      },
+      "id": "opportunity-alert",
+      "name": "Market Opportunity Alert",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 1,
+      "position": [1340, 200],
+      "credentials": {
+        "gmail": "gmail-credentials"
+      }
+    },
+    {
+      "parameters": {
+        "statusCode": 200,
+        "body": "={\"status\": \"success\", \"message\": \"Marketing intelligence analysis completed\", \"analysis_id\": \"{{$node['marketing-processor'].json['id']}}\", \"opportunity_score\": {{$node['marketing-analysis'].json['chain_results'][2]['result']['opportunity_score']}}, \"high_opportunity\": {{$node['opportunity-check'].json ? 'true' : 'false'}}, \"timestamp\": \"{{new Date().toISOString()}}\"}"
+      },
+      "id": "marketing-response",
+      "name": "Marketing Intelligence Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1340, 400]
+    }
+  ],
+  "connections": {
+    "webhook-marketing": {
+      "main": [
+        [
+          {
+            "node": "marketing-processor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "marketing-processor": {
+      "main": [
+        [
+          {
+            "node": "marketing-ingest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "marketing-ingest": {
+      "main": [
+        [
+          {
+            "node": "marketing-analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "marketing-analysis": {
+      "main": [
+        [
+          {
+            "node": "opportunity-check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "opportunity-check": {
+      "main": [
+        [
+          {
+            "node": "opportunity-alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "marketing-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "opportunity-alert": {
+      "main": [
+        [
+          {
+            "node": "marketing-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["marketing", "intelligence", "competitive-analysis"],
+  "meta": {
+    "instanceId": "marketing_intelligence"
+  }
+}

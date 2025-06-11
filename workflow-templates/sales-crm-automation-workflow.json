@@ -1,0 +1,225 @@
+
+{
+  "name": "Sales CRM Automation Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sales-crm-automation",
+        "options": {}
+      },
+      "id": "webhook-sales",
+      "name": "Sales CRM Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Sales CRM Automation Processing\nconst items = $input.all();\nconst processedItems = [];\n\nfor (const item of items) {\n  const data = item.json;\n  \n  const processedItem = {\n    id: data.id || $node.uuid(),\n    lead_type: data.lead_type || 'prospect',\n    company_size: data.company_size || 'medium',\n    industry: data.industry || 'technology',\n    interaction_content: data.interaction_content || data.content || '',\n    deal_stage: data.deal_stage || 'qualification',\n    metadata: {\n      source: data.source || 'crm_activity',\n      activity_date: new Date().toISOString(),\n      sales_rep: data.sales_rep || 'system',\n      lead_score: data.lead_score || 0,\n      revenue_potential: data.revenue_potential || 0\n    },\n    namespace: 'sales_docs',\n    domain: 'sales'\n  };\n  \n  processedItems.push({ json: processedItem });\n}\n\nreturn processedItems;"
+      },
+      "id": "sales-processor",
+      "name": "Sales Data Processor",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://llamaindex-service:8002/ingest",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "documents",
+              "value": "={{$json}}"
+            },
+            {
+              "name": "namespace",
+              "value": "sales_docs"
+            },
+            {
+              "name": "domain",
+              "value": "sales"
+            }
+          ]
+        }
+      },
+      "id": "sales-ingest",
+      "name": "Sales Data Ingestion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://orchestration:8000/api/prompt-chains/execute",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chain_type",
+              "value": "sales_analysis"
+            },
+            {
+              "name": "inputs",
+              "value": "={\"content\": \"{{$node['sales-processor'].json['interaction_content']}}\", \"lead_type\": \"{{$node['sales-processor'].json['lead_type']}}\", \"company_size\": \"{{$node['sales-processor'].json['company_size']}}\", \"deal_stage\": \"{{$node['sales-processor'].json['deal_stage']}}\"}"
+            }
+          ]
+        }
+      },
+      "id": "sales-analysis",
+      "name": "Sales Analysis Chain",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$node['sales-analysis'].json['chain_results'][2]['result']['lead_score']}}",
+              "operation": "larger",
+              "value2": 80
+            }
+          ]
+        }
+      },
+      "id": "hot-lead-check",
+      "name": "Hot Lead Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "to": "sales@company.com,sales-manager@company.com",
+        "subject": "🔥 Hot Lead Alert - High Priority",
+        "text": "A high-scoring lead requires immediate attention:\n\nLead Type: {{$node['sales-processor'].json['lead_type']}}\nCompany Size: {{$node['sales-processor'].json['company_size']}}\nIndustry: {{$node['sales-processor'].json['industry']}}\nLead Score: {{$node['sales-analysis'].json['chain_results'][2]['result']['lead_score']}}\nSales Rep: {{$node['sales-processor'].json['metadata']['sales_rep']}}\n\nRecommended for immediate follow-up.",
+        "options": {}
+      },
+      "id": "hot-lead-alert",
+      "name": "Hot Lead Alert",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 1,
+      "position": [1340, 200],
+      "credentials": {
+        "gmail": "gmail-credentials"
+      }
+    },
+    {
+      "parameters": {
+        "statusCode": 200,
+        "body": "={\"status\": \"success\", \"message\": \"Sales CRM automation completed\", \"interaction_id\": \"{{$node['sales-processor'].json['id']}}\", \"lead_score\": {{$node['sales-analysis'].json['chain_results'][2]['result']['lead_score']}}, \"hot_lead\": {{$node['hot-lead-check'].json ? 'true' : 'false'}}, \"timestamp\": \"{{new Date().toISOString()}}\"}"
+      },
+      "id": "sales-response",
+      "name": "Sales CRM Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1340, 400]
+    }
+  ],
+  "connections": {
+    "webhook-sales": {
+      "main": [
+        [
+          {
+            "node": "sales-processor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "sales-processor": {
+      "main": [
+        [
+          {
+            "node": "sales-ingest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "sales-ingest": {
+      "main": [
+        [
+          {
+            "node": "sales-analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "sales-analysis": {
+      "main": [
+        [
+          {
+            "node": "hot-lead-check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "hot-lead-check": {
+      "main": [
+        [
+          {
+            "node": "hot-lead-alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "sales-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "hot-lead-alert": {
+      "main": [
+        [
+          {
+            "node": "sales-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["sales", "crm", "lead-scoring"],
+  "meta": {
+    "instanceId": "sales_crm_automation"
+  }
+}

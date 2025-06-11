@@ -1,0 +1,190 @@
+
+{
+  "name": "Customer Support Knowledge Base Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "customer-support-kb",
+        "options": {}
+      },
+      "id": "webhook-customer-support",
+      "name": "Customer Support Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Customer Support Processing\nconst items = $input.all();\nconst processedItems = [];\n\nfor (const item of items) {\n  const data = item.json;\n  \n  const processedItem = {\n    ticket_id: data.ticket_id || $node.uuid(),\n    query: data.query || data.question,\n    customer_id: data.customer_id || 'anonymous',\n    urgency: data.urgency || 'normal',\n    category: data.category || 'general',\n    channel: data.channel || 'web',\n    timestamp: new Date().toISOString(),\n    customer_tier: data.customer_tier || 'standard',\n    namespace: 'customer_support_docs',\n    domain: 'customer_support'\n  };\n  \n  processedItems.push({ json: processedItem });\n}\n\nreturn processedItems;"
+      },
+      "id": "support-processor",
+      "name": "Support Ticket Processor",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://orchestration:8000/api/rag/enhanced-query",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{$node['support-processor'].json['query']}}"
+            },
+            {
+              "name": "domain",
+              "value": "customer_support"
+            },
+            {
+              "name": "namespace",
+              "value": "customer_support_docs"
+            },
+            {
+              "name": "top_k",
+              "value": "5"
+            },
+            {
+              "name": "use_llm",
+              "value": "true"
+            }
+          ]
+        }
+      },
+      "id": "support-rag-query",
+      "name": "Support Knowledge Query",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$node['support-processor'].json['urgency']}}",
+              "operation": "equal",
+              "value2": "high"
+            }
+          ]
+        }
+      },
+      "id": "escalation-check",
+      "name": "Check Escalation",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "to": "support-manager@company.com",
+        "subject": "🚨 High Priority Support Ticket",
+        "text": "High priority support ticket requires attention:\n\nTicket ID: {{$node['support-processor'].json['ticket_id']}}\nCustomer: {{$node['support-processor'].json['customer_id']}}\nQuery: {{$node['support-processor'].json['query']}}\nTier: {{$node['support-processor'].json['customer_tier']}}",
+        "options": {}
+      },
+      "id": "escalation-email",
+      "name": "Escalation Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 1,
+      "position": [1120, 200],
+      "credentials": {
+        "gmail": "gmail-credentials"
+      }
+    },
+    {
+      "parameters": {
+        "statusCode": 200,
+        "body": "={\"status\": \"success\", \"answer\": {{$node['support-rag-query'].json['enhanced_answer']}}, \"confidence\": {{$node['support-rag-query'].json['confidence']}}, \"ticket_id\": \"{{$node['support-processor'].json['ticket_id']}}\", \"escalated\": {{$node['escalation-check'].json ? 'true' : 'false'}}, \"timestamp\": \"{{new Date().toISOString()}}\"}"
+      },
+      "id": "support-response",
+      "name": "Support Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1120, 400]
+    }
+  ],
+  "connections": {
+    "webhook-customer-support": {
+      "main": [
+        [
+          {
+            "node": "support-processor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "support-processor": {
+      "main": [
+        [
+          {
+            "node": "support-rag-query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "support-rag-query": {
+      "main": [
+        [
+          {
+            "node": "escalation-check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "escalation-check": {
+      "main": [
+        [
+          {
+            "node": "escalation-email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "support-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "escalation-email": {
+      "main": [
+        [
+          {
+            "node": "support-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["customer-support", "knowledge-base", "escalation"],
+  "meta": {
+    "instanceId": "customer_support_kb"
+  }
+}

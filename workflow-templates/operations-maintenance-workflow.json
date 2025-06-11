@@ -1,0 +1,225 @@
+
+{
+  "name": "Operations & Maintenance Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "operations-maintenance",
+        "options": {}
+      },
+      "id": "webhook-operations",
+      "name": "Operations Maintenance Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Operations & Maintenance Processing\nconst items = $input.all();\nconst processedItems = [];\n\nfor (const item of items) {\n  const data = item.json;\n  \n  const processedItem = {\n    id: data.id || $node.uuid(),\n    operation_type: data.operation_type || 'maintenance',\n    equipment_id: data.equipment_id || 'unknown',\n    facility: data.facility || 'main_facility',\n    procedure_content: data.procedure_content || data.content || '',\n    safety_level: data.safety_level || 'standard',\n    metadata: {\n      source: data.source || 'operations_submission',\n      log_date: new Date().toISOString(),\n      operator_id: data.operator_id || 'system',\n      shift: data.shift || 'day',\n      safety_protocols: data.safety_protocols || ['standard_ppe', 'lockout_tagout']\n    },\n    namespace: 'operations_docs',\n    domain: 'operations'\n  };\n  \n  processedItems.push({ json: processedItem });\n}\n\nreturn processedItems;"
+      },
+      "id": "operations-processor",
+      "name": "Operations Data Processor",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://llamaindex-service:8002/ingest",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "documents",
+              "value": "={{$json}}"
+            },
+            {
+              "name": "namespace",
+              "value": "operations_docs"
+            },
+            {
+              "name": "domain",
+              "value": "operations"
+            }
+          ]
+        }
+      },
+      "id": "operations-ingest",
+      "name": "Operations Data Ingestion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://orchestration:8000/api/prompt-chains/execute",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chain_type",
+              "value": "operations_analysis"
+            },
+            {
+              "name": "inputs",
+              "value": "={\"content\": \"{{$node['operations-processor'].json['procedure_content']}}\", \"operation_type\": \"{{$node['operations-processor'].json['operation_type']}}\", \"equipment_id\": \"{{$node['operations-processor'].json['equipment_id']}}\", \"safety_level\": \"{{$node['operations-processor'].json['safety_level']}}\"}"
+            }
+          ]
+        }
+      },
+      "id": "operations-analysis",
+      "name": "Operations Analysis Chain",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$node['operations-processor'].json['safety_level']}}",
+              "operation": "equal",
+              "value2": "critical"
+            }
+          ]
+        }
+      },
+      "id": "safety-check",
+      "name": "Critical Safety Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "to": "operations@company.com,safety@company.com",
+        "subject": "🚨 Critical Safety Operation Alert",
+        "text": "A critical safety operation is in progress:\n\nEquipment: {{$node['operations-processor'].json['equipment_id']}}\nFacility: {{$node['operations-processor'].json['facility']}}\nOperation: {{$node['operations-processor'].json['operation_type']}}\nOperator: {{$node['operations-processor'].json['metadata']['operator_id']}}\n\nEnsure all safety protocols are being followed.",
+        "options": {}
+      },
+      "id": "safety-alert",
+      "name": "Critical Safety Alert",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 1,
+      "position": [1340, 200],
+      "credentials": {
+        "gmail": "gmail-credentials"
+      }
+    },
+    {
+      "parameters": {
+        "statusCode": 200,
+        "body": "={\"status\": \"success\", \"message\": \"Operations maintenance logged\", \"operation_id\": \"{{$node['operations-processor'].json['id']}}\", \"safety_level\": \"{{$node['operations-processor'].json['safety_level']}}\", \"critical_alert_sent\": {{$node['safety-check'].json ? 'true' : 'false'}}, \"timestamp\": \"{{new Date().toISOString()}}\"}"
+      },
+      "id": "operations-response",
+      "name": "Operations Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1340, 400]
+    }
+  ],
+  "connections": {
+    "webhook-operations": {
+      "main": [
+        [
+          {
+            "node": "operations-processor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "operations-processor": {
+      "main": [
+        [
+          {
+            "node": "operations-ingest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "operations-ingest": {
+      "main": [
+        [
+          {
+            "node": "operations-analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "operations-analysis": {
+      "main": [
+        [
+          {
+            "node": "safety-check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "safety-check": {
+      "main": [
+        [
+          {
+            "node": "safety-alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "operations-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "safety-alert": {
+      "main": [
+        [
+          {
+            "node": "operations-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["operations", "maintenance", "safety"],
+  "meta": {
+    "instanceId": "operations_maintenance"
+  }
+}

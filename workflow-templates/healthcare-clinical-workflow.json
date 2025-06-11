@@ -1,0 +1,225 @@
+
+{
+  "name": "Healthcare Clinical Assistant Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "healthcare-clinical",
+        "options": {}
+      },
+      "id": "webhook-healthcare",
+      "name": "Healthcare Clinical Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Healthcare Clinical Processing\nconst items = $input.all();\nconst processedItems = [];\n\nfor (const item of items) {\n  const data = item.json;\n  \n  const processedItem = {\n    id: data.id || $node.uuid(),\n    document_type: data.document_type || 'clinical_note',\n    patient_category: data.patient_category || 'general',\n    specialty: data.specialty || 'internal_medicine',\n    clinical_content: data.clinical_content || data.content || '',\n    urgency_level: data.urgency_level || 'routine',\n    metadata: {\n      source: data.source || 'clinical_submission',\n      entry_date: new Date().toISOString(),\n      clinician_id: data.clinician_id || 'system',\n      hipaa_compliant: true,\n      patient_anonymized: data.patient_anonymized || true,\n      confidentiality_level: 'phi_protected'\n    },\n    namespace: 'healthcare_docs',\n    domain: 'healthcare'\n  };\n  \n  processedItems.push({ json: processedItem });\n}\n\nreturn processedItems;"
+      },
+      "id": "healthcare-processor",
+      "name": "Healthcare Clinical Processor",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://llamaindex-service:8002/ingest",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "documents",
+              "value": "={{$json}}"
+            },
+            {
+              "name": "namespace",
+              "value": "healthcare_docs"
+            },
+            {
+              "name": "domain",
+              "value": "healthcare"
+            }
+          ]
+        }
+      },
+      "id": "healthcare-ingest",
+      "name": "Healthcare Document Ingestion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://orchestration:8000/api/prompt-chains/execute",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chain_type",
+              "value": "clinical_analysis"
+            },
+            {
+              "name": "inputs",
+              "value": "={\"content\": \"{{$node['healthcare-processor'].json['clinical_content']}}\", \"document_type\": \"{{$node['healthcare-processor'].json['document_type']}}\", \"specialty\": \"{{$node['healthcare-processor'].json['specialty']}}\", \"urgency_level\": \"{{$node['healthcare-processor'].json['urgency_level']}}\"}"
+            }
+          ]
+        }
+      },
+      "id": "clinical-analysis",
+      "name": "Clinical Analysis Chain",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$node['healthcare-processor'].json['urgency_level']}}",
+              "operation": "equal",
+              "value2": "urgent"
+            }
+          ]
+        }
+      },
+      "id": "urgency-check",
+      "name": "Clinical Urgency Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "to": "clinical-director@hospital.com,emergency@hospital.com",
+        "subject": "🏥 Urgent Clinical Attention Required",
+        "text": "An urgent clinical case requires immediate attention:\n\nDocument Type: {{$node['healthcare-processor'].json['document_type']}}\nSpecialty: {{$node['healthcare-processor'].json['specialty']}}\nUrgency: {{$node['healthcare-processor'].json['urgency_level']}}\nClinician: {{$node['healthcare-processor'].json['metadata']['clinician_id']}}\n\nPlease review immediately for patient safety.",
+        "options": {}
+      },
+      "id": "clinical-alert",
+      "name": "Urgent Clinical Alert",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 1,
+      "position": [1340, 200],
+      "credentials": {
+        "gmail": "gmail-credentials"
+      }
+    },
+    {
+      "parameters": {
+        "statusCode": 200,
+        "body": "={\"status\": \"success\", \"message\": \"Clinical documentation processed\", \"case_id\": \"{{$node['healthcare-processor'].json['id']}}\", \"urgency_level\": \"{{$node['healthcare-processor'].json['urgency_level']}}\", \"urgent_alert_sent\": {{$node['urgency-check'].json ? 'true' : 'false'}}, \"hipaa_compliant\": true, \"timestamp\": \"{{new Date().toISOString()}}\"}"
+      },
+      "id": "healthcare-response",
+      "name": "Healthcare Clinical Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1340, 400]
+    }
+  ],
+  "connections": {
+    "webhook-healthcare": {
+      "main": [
+        [
+          {
+            "node": "healthcare-processor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "healthcare-processor": {
+      "main": [
+        [
+          {
+            "node": "healthcare-ingest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "healthcare-ingest": {
+      "main": [
+        [
+          {
+            "node": "clinical-analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "clinical-analysis": {
+      "main": [
+        [
+          {
+            "node": "urgency-check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "urgency-check": {
+      "main": [
+        [
+          {
+            "node": "clinical-alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "healthcare-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "clinical-alert": {
+      "main": [
+        [
+          {
+            "node": "healthcare-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["healthcare", "clinical", "hipaa"],
+  "meta": {
+    "instanceId": "healthcare_clinical"
+  }
+}

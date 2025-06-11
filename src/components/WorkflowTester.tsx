@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -83,6 +82,111 @@ export const WorkflowTester: React.FC = () => {
         file_name: "Q1-2024-earnings.pdf",
         user_id: "cfo-001"
       }, null, 2)
+    },
+    {
+      id: 'customer-support-kb',
+      name: 'Customer Support Knowledge Base',
+      endpoint: '/customer-support-kb',
+      samplePayload: JSON.stringify({
+        ticket_id: "TICK-001",
+        query: "How do I reset my password?",
+        customer_id: "cust-12345",
+        urgency: "normal",
+        category: "account",
+        channel: "web",
+        customer_tier: "premium"
+      }, null, 2)
+    },
+    {
+      id: 'rd-patent-analysis',
+      name: 'R&D Patent Analysis',
+      endpoint: '/rd-patent-analysis',
+      samplePayload: JSON.stringify({
+        id: "rd-analysis-001",
+        innovation_type: "software_algorithm",
+        description: "Novel machine learning algorithm for real-time data processing...",
+        inventor_team: ["Dr. Smith", "Prof. Johnson"],
+        research_area: "artificial_intelligence",
+        priority_level: "high",
+        project_code: "AI-2024-001",
+        confidentiality_level: "internal"
+      }, null, 2)
+    },
+    {
+      id: 'compliance-monitoring',
+      name: 'Compliance Monitoring',
+      endpoint: '/compliance-monitoring',
+      samplePayload: JSON.stringify({
+        id: "comp-audit-001",
+        regulation_type: "GDPR",
+        jurisdiction: "EU",
+        compliance_area: "data_privacy",
+        document_content: "Data processing procedures for customer information handling...",
+        audit_scope: "operational",
+        department: "compliance",
+        risk_category: "medium"
+      }, null, 2)
+    },
+    {
+      id: 'marketing-insights',
+      name: 'Marketing Intelligence',
+      endpoint: '/marketing-insights',
+      samplePayload: JSON.stringify({
+        id: "market-analysis-001",
+        campaign_type: "competitive_analysis",
+        target_market: "B2B_SaaS",
+        content_type: "market_research",
+        market_data: "Competitive landscape analysis for enterprise software market...",
+        analysis_scope: "competitive",
+        geographic_scope: "North_America",
+        industry_vertical: "technology"
+      }, null, 2)
+    },
+    {
+      id: 'operations-maintenance',
+      name: 'Operations & Maintenance',
+      endpoint: '/operations-maintenance',
+      samplePayload: JSON.stringify({
+        id: "ops-log-001",
+        operation_type: "preventive_maintenance",
+        equipment_id: "EQUIP-M-001",
+        facility: "manufacturing_plant_1",
+        procedure_content: "Monthly maintenance check on production line equipment...",
+        safety_level: "standard",
+        operator_id: "tech-003",
+        shift: "day"
+      }, null, 2)
+    },
+    {
+      id: 'sales-crm-automation',
+      name: 'Sales CRM Automation',
+      endpoint: '/sales-crm-automation',
+      samplePayload: JSON.stringify({
+        id: "sales-interaction-001",
+        lead_type: "enterprise_prospect",
+        company_size: "large",
+        industry: "financial_services",
+        interaction_content: "Initial discovery call with Fortune 500 financial institution...",
+        deal_stage: "qualification",
+        sales_rep: "sales-rep-001",
+        lead_score: 75,
+        revenue_potential: 500000
+      }, null, 2)
+    },
+    {
+      id: 'healthcare-clinical',
+      name: 'Healthcare Clinical Assistant',
+      endpoint: '/healthcare-clinical',
+      samplePayload: JSON.stringify({
+        id: "clinical-note-001",
+        document_type: "progress_note",
+        patient_category: "ambulatory",
+        specialty: "cardiology",
+        clinical_content: "Patient follow-up for cardiac evaluation and treatment plan...",
+        urgency_level: "routine",
+        clinician_id: "dr-smith-001",
+        patient_anonymized: true
+      }, null, 2)
     }
   ];
 
@@ -162,7 +266,7 @@ export const WorkflowTester: React.FC = () => {
       <div className="text-center space-y-2">
         <h2 className="text-3xl font-bold">N8N Workflow Tester</h2>
         <p className="text-muted-foreground">
-          Test your workflow templates with sample data
+          Test your workflow templates with sample data across all 10 business domains
         </p>
       </div>
 
@@ -175,7 +279,7 @@ export const WorkflowTester: React.FC = () => {
               <span>Test Configuration</span>
             </CardTitle>
             <CardDescription>
-              Configure and run workflow tests
+              Configure and run workflow tests for all domains
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -311,29 +415,41 @@ export const WorkflowTester: React.FC = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Testing Guide</CardTitle>
+          <CardTitle>Enterprise Workflow Testing Guide</CardTitle>
           <CardDescription>
-            Best practices for testing N8N workflows
+            Best practices for testing N8N workflows across all business domains
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <h4 className="font-semibold">Pre-Test Checklist</h4>
               <ul className="text-sm space-y-1 text-muted-foreground">
                 <li>• N8N instance is running</li>
-                <li>• Workflows are imported and active</li>
-                <li>• Required credentials are configured</li>
-                <li>• Supabase connection is working</li>
+                <li>• All 10 workflows imported</li>
+                <li>• Credentials configured</li>
+                <li>• Supabase connection active</li>
+                <li>• Email services configured</li>
               </ul>
             </div>
             <div className="space-y-2">
               <h4 className="font-semibold">Test Scenarios</h4>
               <ul className="text-sm space-y-1 text-muted-foreground">
                 <li>• Valid payload processing</li>
-                <li>• Error handling and validation</li>
+                <li>• Error handling validation</li>
                 <li>• Integration endpoints</li>
-                <li>• Notification systems</li>
+                <li>• Alert notifications</li>
+                <li>• Escalation workflows</li>
+              </ul>
+            </div>
+            <div className="space-y-2">
+              <h4 className="font-semibold">Domain Coverage</h4>
+              <ul className="text-sm space-y-1 text-muted-foreground">
+                <li>• Legal & Compliance</li>
+                <li>• HR & Finance</li>
+                <li>• Customer & Sales</li>
+                <li>• R&D & Operations</li>
+                <li>• Marketing & Healthcare</li>
               </ul>
             </div>
           </div>
