@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 interface RequirementSession {
   id: string;
   tenant_id?: string;
-  session_data: Record<string, any>;
+  session_data: any;
   status: string;
   created_at: string;
 }
@@ -41,16 +41,15 @@ export function RequirementHistory({ tenantId, onRestore }: RequirementHistoryPr
         
         if (queryError) {
           setError(queryError.message);
-        } else {
-          // Explicitly type the data transformation
-          const typedSessions: RequirementSession[] = (data || []).map((item: any) => ({
+        } else if (data) {
+          const transformedSessions = data.map(item => ({
             id: item.id,
             tenant_id: item.tenant_id,
             session_data: item.session_data || {},
             status: item.status,
             created_at: item.created_at
           }));
-          setSessions(typedSessions);
+          setSessions(transformedSessions);
         }
       } catch (err) {
         setError('Failed to fetch sessions');
