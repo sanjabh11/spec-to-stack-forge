@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 interface RequirementSession {
   id: string;
   tenant_id?: string;
-  session_data: any;
+  session_data: Record<string, any>;
   status: string;
   created_at: string;
 }
@@ -37,12 +37,20 @@ export function RequirementHistory({ tenantId, onRestore }: RequirementHistoryPr
           query = query.eq('tenant_id', tenantId);
         }
         
-        const { data, error } = await query;
+        const { data, error: queryError } = await query;
         
-        if (error) {
-          setError(error.message);
+        if (queryError) {
+          setError(queryError.message);
         } else {
-          setSessions(data || []);
+          // Explicitly type the data transformation
+          const typedSessions: RequirementSession[] = (data || []).map((item: any) => ({
+            id: item.id,
+            tenant_id: item.tenant_id,
+            session_data: item.session_data || {},
+            status: item.status,
+            created_at: item.created_at
+          }));
+          setSessions(typedSessions);
         }
       } catch (err) {
         setError('Failed to fetch sessions');
