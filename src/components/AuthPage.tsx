@@ -36,7 +36,7 @@ export default function AuthPage({ onLogin }: { onLogin: (user: any) => void }) 
         onLogin({
           ...data.user,
           profile,
-          name: profile?.name || data.user.email?.split('@')[0] || 'User',
+          name: profile?.name || data.user.user_metadata?.name || data.user.email?.split('@')[0] || 'User',
           role: profile?.role || 'user',
           tenant_id: profile?.tenant_id
         });

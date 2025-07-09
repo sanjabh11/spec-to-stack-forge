@@ -77,7 +77,7 @@ const App = () => {
       setUser({
         ...authUser,
         profile: userProfile,
-        name: userProfile?.name || authUser.email?.split('@')[0] || 'User',
+        name: userProfile?.name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
         role: userProfile?.role || 'user',
         tenant_id: userProfile?.tenant_id
       });
