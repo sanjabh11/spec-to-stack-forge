@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -16,6 +17,25 @@ const App = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Temporarily bypass authentication - create a mock user
+    const mockUser = {
+      id: 'demo-user',
+      email: 'demo@example.com',
+      profile: {
+        name: 'Demo User',
+        role: 'user',
+        tenant_id: 'default'
+      },
+      name: 'Demo User',
+      role: 'user',
+      tenant_id: 'default'
+    };
+    
+    setUser(mockUser);
+    setLoading(false);
+    
+    // Comment out the real auth logic for now
+    /*
     // Check active session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
@@ -36,6 +56,7 @@ const App = () => {
     });
 
     return () => subscription.unsubscribe();
+    */
   }, []);
 
   const handleAuthUser = async (authUser: any) => {
@@ -89,7 +110,9 @@ const App = () => {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    // Temporarily disabled
+    // await supabase.auth.signOut();
+    console.log('Logout temporarily disabled');
   };
 
   if (loading) {
@@ -103,17 +126,7 @@ const App = () => {
     );
   }
 
-  if (!user) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <Toaster />
-          <AuthPage onLogin={setUser} />
-        </TooltipProvider>
-      </QueryClientProvider>
-    );
-  }
-
+  // Temporarily always show the main app
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>

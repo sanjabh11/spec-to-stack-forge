@@ -8,578 +8,485 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL') ?? '',
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-);
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const githubToken = Deno.env.get('GITHUB_TOKEN');
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+interface GitHubIntegrationRequest {
+  action: 'create-repo' | 'create-pr' | 'sync-repo' | 'get-repos' | 'create-workflow';
+  orgName?: string;
+  repoName?: string;
+  artifacts?: any;
+  sessionData?: any;
+  domain?: string;
+  branchName?: string;
+  commitMessage?: string;
+  files?: { path: string; content: string }[];
+}
+
+interface GitHubRepo {
+  id: number;
+  name: string;
+  full_name: string;
+  html_url: string;
+  private: boolean;
+  default_branch: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface GitHubPullRequest {
+  id: number;
+  number: number;
+  title: string;
+  html_url: string;
+  state: string;
+  created_at: string;
+  updated_at: string;
+}
+
+async function createGitHubRepo(orgName: string, repoName: string, isPrivate: boolean = false): Promise<GitHubRepo> {
+  const endpoint = orgName ? `https://api.github.com/orgs/${orgName}/repos` : 'https://api.github.com/user/repos';
+  
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Authorization': `token ${githubToken}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      name: repoName,
+      description: 'AI-generated platform solution',
+      private: isPrivate,
+      auto_init: true,
+      gitignore_template: 'Node',
+      license_template: 'mit'
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(`GitHub API error: ${response.status} - ${error.message}`);
   }
 
-  try {
-    const { action, repoName, orgName, artifacts, sessionData, domain } = await req.json();
+  return await response.json();
+}
 
-    console.log(`GitHub integration action: ${action}`);
+async function createGitHubBranch(repoFullName: string, branchName: string, baseBranch: string = 'main'): Promise<void> {
+  // Get the SHA of the base branch
+  const baseResponse = await fetch(`https://api.github.com/repos/${repoFullName}/git/refs/heads/${baseBranch}`, {
+    headers: {
+      'Authorization': `token ${githubToken}`,
+      'Accept': 'application/vnd.github.v3+json',
+    },
+  });
 
-    switch (action) {
-      case 'create-pr':
-        return await createPullRequest(repoName, orgName, artifacts, sessionData, domain);
-      case 'create-repository':
-        return await createRepository(repoName, orgName, artifacts, sessionData, domain);
-      case 'get-repos':
-        return await getRepositories(orgName);
-      case 'get-diff':
-        return await getDiff(repoName, orgName);
-      default:
-        throw new Error(`Unknown action: ${action}`);
+  if (!baseResponse.ok) {
+    throw new Error(`Failed to get base branch: ${baseResponse.status}`);
+  }
+
+  const baseData = await baseResponse.json();
+  const baseSha = baseData.object.sha;
+
+  // Create new branch
+  const response = await fetch(`https://api.github.com/repos/${repoFullName}/git/refs`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `token ${githubToken}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      ref: `refs/heads/${branchName}`,
+      sha: baseSha,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(`Failed to create branch: ${response.status} - ${error.message}`);
+  }
+}
+
+async function uploadFileToGitHub(repoFullName: string, filePath: string, content: string, branchName: string): Promise<void> {
+  const encodedContent = btoa(content);
+  
+  const response = await fetch(`https://api.github.com/repos/${repoFullName}/contents/${filePath}`, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `token ${githubToken}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      message: `Add ${filePath}`,
+      content: encodedContent,
+      branch: branchName,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(`Failed to upload file ${filePath}: ${response.status} - ${error.message}`);
+  }
+}
+
+async function createPullRequest(repoFullName: string, branchName: string, title: string, body: string): Promise<GitHubPullRequest> {
+  const response = await fetch(`https://api.github.com/repos/${repoFullName}/pulls`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `token ${githubToken}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      title,
+      body,
+      head: branchName,
+      base: 'main',
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(`Failed to create pull request: ${response.status} - ${error.message}`);
+  }
+
+  return await response.json();
+}
+
+function generateArtifactFiles(artifacts: any, domain: string): { path: string; content: string }[] {
+  const files: { path: string; content: string }[] = [];
+
+  // Architecture blueprint
+  if (artifacts.architecture) {
+    files.push({
+      path: 'architecture/blueprint.yaml',
+      content: artifacts.architecture.yaml || 'architecture:\n  placeholder: true'
+    });
+  }
+
+  // Terraform modules
+  if (artifacts.terraform) {
+    if (artifacts.terraform.files) {
+      Object.entries(artifacts.terraform.files).forEach(([filename, content]) => {
+        files.push({
+          path: `infrastructure/${filename}`,
+          content: content as string
+        });
+      });
     }
-  } catch (error) {
-    console.error('GitHub integration error:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  }
+
+  // n8n workflows
+  if (artifacts.workflow) {
+    files.push({
+      path: 'workflows/n8n-workflow.json',
+      content: JSON.stringify(artifacts.workflow.n8n_json || {}, null, 2)
     });
   }
-});
 
-async function createPullRequest(repoName: string, orgName: string, artifacts: any, sessionData: any, domain: string) {
-  console.log(`Creating PR for ${orgName}/${repoName}`);
-
-  try {
-    // Generate file contents based on artifacts
-    const files = generateProjectFiles(artifacts, sessionData, domain);
-
-    // Simulate successful PR creation
-    const prData = {
-      prUrl: `https://github.com/${orgName}/${repoName}/pull/1`,
-      branch: 'feature/ai-generated-solution',
-      commitSha: generateCommitSha(),
-      filesCreated: Object.keys(files).length
-    };
-
-    // Log the PR creation
-    await supabase
-      .from('audit_logs')
-      .insert({
-        action: 'github_pr_created',
-        resource_type: 'github_integration',
-        details: {
-          repoName,
-          orgName,
-          domain,
-          prUrl: prData.prUrl,
-          filesCreated: prData.filesCreated
-        }
-      });
-
-    return new Response(JSON.stringify(prData), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  // CI/CD pipeline
+  if (artifacts.cicd) {
+    files.push({
+      path: '.github/workflows/ci.yml',
+      content: artifacts.cicd.github_actions || 'name: CI\non: [push, pull_request]\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v2'
     });
-  } catch (error) {
-    console.error('PR creation error:', error);
-    throw error;
   }
-}
-
-async function createRepository(repoName: string, orgName: string, artifacts: any, sessionData: any, domain: string) {
-  console.log(`Creating repository ${orgName}/${repoName}`);
-
-  try {
-    const files = generateProjectFiles(artifacts, sessionData, domain);
-
-    const repoData = {
-      repositoryUrl: `https://github.com/${orgName}/${repoName}`,
-      filesCreated: Object.keys(files).length,
-      defaultBranch: 'main'
-    };
-
-    // Log the repository creation
-    await supabase
-      .from('audit_logs')
-      .insert({
-        action: 'github_repo_created',
-        resource_type: 'github_integration',
-        details: {
-          repoName,
-          orgName,
-          domain,
-          repositoryUrl: repoData.repositoryUrl,
-          filesCreated: repoData.filesCreated
-        }
-      });
-
-    return new Response(JSON.stringify(repoData), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-  } catch (error) {
-    console.error('Repository creation error:', error);
-    throw error;
-  }
-}
-
-async function getRepositories(orgName: string) {
-  const repos = [
-    { name: 'ai-platform-healthcare', private: false, url: `https://github.com/${orgName}/ai-platform-healthcare` },
-    { name: 'ai-platform-finance', private: false, url: `https://github.com/${orgName}/ai-platform-finance` },
-    { name: 'ai-platform-legal', private: true, url: `https://github.com/${orgName}/ai-platform-legal` }
-  ];
-
-  return new Response(JSON.stringify({ repositories: repos }), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-  });
-}
-
-async function getDiff(repoName: string, orgName: string) {
-  const diff = {
-    additions: 150,
-    deletions: 12,
-    files: [
-      'infra/main.tf',
-      'workflows/data-pipeline.json',
-      '.github/workflows/ci.yml',
-      'docker-compose.yml',
-      'README.md'
-    ]
-  };
-
-  return new Response(JSON.stringify(diff), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-  });
-}
-
-function generateProjectFiles(artifacts: any, sessionData: any, domain: string) {
-  const files: Record<string, string> = {};
-
-  // Safely handle compliance data
-  const compliance = Array.isArray(sessionData?.compliance) 
-    ? sessionData.compliance 
-    : sessionData?.compliance 
-      ? [sessionData.compliance] 
-      : ['GDPR'];
-
-  // Architecture Blueprint
-  files['architecture/blueprint.yaml'] = generateArchitectureBlueprint(sessionData, domain, compliance);
-
-  // Terraform Infrastructure
-  files['infra/main.tf'] = generateTerraformMain(sessionData, domain, compliance);
-  files['infra/variables.tf'] = generateTerraformVariables(sessionData);
-  files['infra/outputs.tf'] = generateTerraformOutputs();
-
-  // n8n Workflow
-  files['workflows/data-pipeline.json'] = generateN8nWorkflow(sessionData, domain);
-
-  // CI/CD Pipeline
-  files['.github/workflows/ci.yml'] = generateCICDPipeline(domain);
-
-  // Docker Configuration
-  files['docker-compose.yml'] = generateDockerCompose(sessionData);
-  files['Dockerfile'] = generateDockerfile();
-
-  // Kubernetes Manifests
-  files['k8s/deployment.yml'] = generateKubernetesDeployment(sessionData, domain);
-  files['k8s/service.yml'] = generateKubernetesService();
 
   // Documentation
-  files['README.md'] = generateReadme(sessionData, domain, compliance);
-  files['docs/deployment.md'] = generateDeploymentDocs();
+  files.push({
+    path: 'README.md',
+    content: generateReadmeContent(domain, artifacts)
+  });
+
+  // Docker configuration
+  files.push({
+    path: 'docker-compose.yml',
+    content: generateDockerComposeContent(domain)
+  });
+
+  // Kubernetes manifests
+  files.push({
+    path: 'k8s/deployment.yaml',
+    content: generateKubernetesManifest(domain)
+  });
 
   return files;
 }
 
-function generateArchitectureBlueprint(sessionData: any, domain: string, compliance: string[]): string {
-  return `# AI Platform Architecture Blueprint
-# Generated for ${domain} domain
+function generateReadmeContent(domain: string, artifacts: any): string {
+  return `# ${domain.charAt(0).toUpperCase() + domain.slice(1)} AI Platform
 
-apiVersion: v1
-kind: Architecture
-metadata:
-  name: ${domain.toLowerCase()}-ai-platform
-  domain: ${domain}
-  
-spec:
-  services:
-    - name: llm-api
-      type: fastapi
-      replicas:
-        min: ${sessionData?.concurrency || 2}
-        max: ${(sessionData?.concurrency || 2) * 3}
-      resources:
-        cpu: 500m
-        memory: 1Gi
-      sla:
-        target: ${sessionData?.sla_target || 99.9}%
-        latency: 2000ms
-        
-    - name: vector-db
-      type: chromadb
-      replicas:
-        min: 1
-        max: 3
-      storage: 10Gi
-      
-    - name: workflow-engine
-      type: n8n
-      replicas: 1
-      
-  compliance:
-    enabled: ${compliance.length > 0 ? 'true' : 'false'}
-    flags: ${JSON.stringify(compliance)}
-    
-  monitoring:
-    metrics: true
-    logging: true
-    tracing: true
+## Overview
+This is an AI-powered platform solution generated for the ${domain} domain.
+
+## Architecture
+- **Domain**: ${domain}
+- **Generated**: ${new Date().toISOString()}
+- **Components**: API Gateway, AI Models, Vector Database, Workflows
+
+## Quick Start
+
+### Prerequisites
+- Docker and Docker Compose
+- Kubernetes cluster (optional)
+- Node.js 18+ (for development)
+
+### Installation
+
+1. Clone the repository
+\`\`\`bash
+git clone <repository-url>
+cd ${domain}-ai-solution
+\`\`\`
+
+2. Start with Docker Compose
+\`\`\`bash
+docker-compose up -d
+\`\`\`
+
+3. Access the platform
+- API: http://localhost:8000
+- UI: http://localhost:3000
+
+## Architecture Components
+
+### Infrastructure
+- **API Gateway**: FastAPI-based REST API
+- **AI Models**: LLM integration with fallback support
+- **Vector Database**: ChromaDB for embeddings
+- **Workflows**: n8n automation platform
+
+### Deployment
+- **Docker**: Multi-stage builds for production
+- **Kubernetes**: Scalable container orchestration
+- **CI/CD**: GitHub Actions automation
+
+## Configuration
+
+### Environment Variables
+\`\`\`bash
+# Core settings
+DOMAIN=${domain}
+API_PORT=8000
+UI_PORT=3000
+
+# AI Models
+GEMINI_API_KEY=your_gemini_key
+OPENAI_API_KEY=your_openai_key
+
+# Database
+DATABASE_URL=postgresql://user:pass@localhost/db
+VECTOR_DB_URL=http://localhost:8000
+
+# Monitoring
+GRAFANA_URL=http://localhost:3000
+PROMETHEUS_URL=http://localhost:9090
+\`\`\`
+
+## Generated Files
+
+### Architecture
+- \`architecture/blueprint.yaml\` - System architecture definition
+- \`docs/architecture.md\` - Detailed architecture documentation
+
+### Infrastructure
+- \`infrastructure/\` - Terraform modules for cloud deployment
+- \`k8s/\` - Kubernetes manifests
+- \`docker-compose.yml\` - Local development environment
+
+### Workflows
+- \`workflows/\` - n8n workflow definitions
+- \`.github/workflows/\` - CI/CD pipelines
+
+## Development
+
+### Local Development
+\`\`\`bash
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+
+# Run tests
+npm test
+\`\`\`
+
+### Production Deployment
+\`\`\`bash
+# Build production image
+docker build -t ${domain}-ai-platform .
+
+# Deploy to Kubernetes
+kubectl apply -f k8s/
+\`\`\`
+
+## Monitoring
+
+### Metrics
+- **Performance**: Response times, throughput
+- **Costs**: Token usage, infrastructure costs
+- **Quality**: Model accuracy, user satisfaction
+
+### Dashboards
+- Grafana: http://localhost:3000
+- Prometheus: http://localhost:9090
+
+## Support
+
+### Documentation
+- [API Reference](docs/api.md)
+- [Architecture Guide](docs/architecture.md)
+- [Deployment Guide](docs/deployment.md)
+
+### Contributing
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+## License
+MIT License - see LICENSE file for details.
+
+---
+*Generated by AI Platform Advisor*
 `;
 }
 
-function generateTerraformMain(sessionData: any, domain: string, compliance: string[]): string {
-  return `# Terraform Infrastructure for ${domain} AI Platform
-# Generated configuration
-
-terraform {
-  required_version = ">= 1.0"
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-  }
-}
-
-provider "aws" {
-  region = var.aws_region
-}
-
-# EKS Cluster
-module "eks" {
-  source = "terraform-aws-modules/eks/aws"
-  
-  cluster_name    = "\${var.cluster_name}-${domain.toLowerCase()}"
-  cluster_version = "1.27"
-  
-  vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.private_subnets
-  
-  node_groups = {
-    main = {
-      desired_capacity = ${sessionData?.concurrency || 2}
-      max_capacity     = ${(sessionData?.concurrency || 2) * 2}
-      min_capacity     = 1
-      
-      instance_types = ["t3.medium"]
-    }
-  }
-  
-  ${compliance.includes('HIPAA') ? `
-  # HIPAA Compliance
-  cluster_encryption_config = [{
-    provider_key_arn = aws_kms_key.eks.arn
-    resources        = ["secrets"]
-  }]
-  ` : ''}
-}
-
-# VPC
-module "vpc" {
-  source = "terraform-aws-modules/vpc/aws"
-  
-  name = "\${var.cluster_name}-vpc"
-  cidr = "10.0.0.0/16"
-  
-  azs             = data.aws_availability_zones.available.names
-  private_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
-  public_subnets  = ["10.0.101.0/24", "10.0.102.0/24"]
-  
-  enable_nat_gateway = true
-  enable_vpn_gateway = true
-  
-  ${compliance.includes('HIPAA') ? 'enable_flow_log = true' : ''}
-}
-
-data "aws_availability_zones" "available" {}
-
-${compliance.includes('HIPAA') ? `
-# KMS Key for encryption
-resource "aws_kms_key" "eks" {
-  description             = "EKS Secret Encryption Key"
-  deletion_window_in_days = 7
-}
-` : ''}
-`;
-}
-
-function generateTerraformVariables(sessionData: any): string {
-  return `# Terraform Variables
-
-variable "aws_region" {
-  description = "AWS region"
-  type        = string
-  default     = "us-west-2"
-}
-
-variable "cluster_name" {
-  description = "EKS cluster name"
-  type        = string
-  default     = "ai-platform"
-}
-
-variable "throughput" {
-  description = "Expected throughput"
-  type        = number
-  default     = ${sessionData?.throughput || 50}
-}
-
-variable "token_budget" {
-  description = "Token budget for LLM"
-  type        = number
-  default     = ${sessionData?.token_budget || 100000}
-}
-`;
-}
-
-function generateTerraformOutputs(): string {
-  return `# Terraform Outputs
-
-output "cluster_endpoint" {
-  description = "EKS cluster endpoint"
-  value       = module.eks.cluster_endpoint
-}
-
-output "cluster_name" {
-  description = "EKS cluster name"
-  value       = module.eks.cluster_id
-}
-
-output "vpc_id" {
-  description = "VPC ID"
-  value       = module.vpc.vpc_id
-}
-
-output "private_subnets" {
-  description = "Private subnet IDs"
-  value       = module.vpc.private_subnets
-}
-`;
-}
-
-function generateN8nWorkflow(sessionData: any, domain: string): string {
-  const workflow = {
-    name: `${domain} Data Pipeline`,
-    nodes: [
-      {
-        id: "start",
-        type: "n8n-nodes-base.start",
-        position: [240, 300],
-        parameters: {}
-      },
-      {
-        id: "pdfParser",
-        type: "n8n-nodes-base.pdf", 
-        position: [460, 300],
-        parameters: {
-          operation: "extractText"
-        }
-      },
-      {
-        id: "embeddings",
-        type: "n8n-nodes-base.openAi",
-        position: [680, 300],
-        parameters: {
-          resource: "embedding",
-          model: "text-embedding-ada-002"
-        }
-      },
-      {
-        id: "chromaStore",
-        type: "n8n-nodes-base.httpRequest",
-        position: [900, 300],
-        parameters: {
-          url: "http://chromadb:8000/api/v1/collections",
-          method: "POST"
-        }
-      }
-    ],
-    connections: {
-      "start": { "main": [["pdfParser"]] },
-      "pdfParser": { "main": [["embeddings"]] },
-      "embeddings": { "main": [["chromaStore"]] }
-    }
-  };
-
-  return JSON.stringify(workflow, null, 2);
-}
-
-function generateCICDPipeline(domain: string): string {
-  return `name: ${domain} AI Platform CI/CD
-
-on:
-  push:
-    branches: [ main, staging ]
-  pull_request:
-    branches: [ main ]
-
-jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - name: Terraform Format Check
-      run: terraform fmt -check
-    - name: Terraform Validate
-      run: terraform validate
-
-  test:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - name: Run Unit Tests
-      run: npm test
-    - name: Run Integration Tests
-      run: npm run test:integration
-
-  security:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - name: Run tfsec
-      uses: aquasecurity/tfsec-action@v1.0.0
-
-  deploy-staging:
-    needs: [lint, test, security]
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/staging'
-    steps:
-    - uses: actions/checkout@v4
-    - name: Deploy to Staging
-      run: |
-        terraform init
-        terraform plan
-        terraform apply -auto-approve
-
-  deploy-production:
-    needs: [lint, test, security]
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    environment: production
-    steps:
-    - uses: actions/checkout@v4
-    - name: Deploy to Production
-      run: |
-        terraform init
-        terraform plan
-        terraform apply -auto-approve
-    - name: Run Smoke Tests
-      run: npm run smoke:test
-`;
-}
-
-function generateDockerCompose(sessionData: any): string {
+function generateDockerComposeContent(domain: string): string {
   return `version: '3.8'
 
 services:
-  app:
+  api:
     build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DOMAIN=${domain}
+      - DATABASE_URL=postgresql://postgres:password@db:5432/${domain}_db
+      - VECTOR_DB_URL=http://vector-db:8000
+    depends_on:
+      - db
+      - vector-db
+    restart: unless-stopped
+
+  ui:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
     environment:
-      - NODE_ENV=production
+      - API_URL=http://api:8000
     depends_on:
-      - chromadb
-      - redis
+      - api
+    restart: unless-stopped
 
-  chromadb:
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=${domain}_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  vector-db:
     image: chromadb/chroma:latest
     ports:
-      - "8000:8000"
+      - "8001:8000"
+    environment:
+      - CHROMA_HOST=0.0.0.0
+      - CHROMA_PORT=8000
     volumes:
       - chroma_data:/chroma/chroma
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
+    restart: unless-stopped
 
   n8n:
-    image: n8nio/n8n
+    image: n8nio/n8n:latest
     ports:
       - "5678:5678"
     environment:
       - N8N_BASIC_AUTH_ACTIVE=true
       - N8N_BASIC_AUTH_USER=admin
-      - N8N_BASIC_AUTH_PASSWORD=admin
+      - N8N_BASIC_AUTH_PASSWORD=password
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=db
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${domain}_n8n
+      - DB_POSTGRESDB_USER=postgres
+      - DB_POSTGRESDB_PASSWORD=password
+    depends_on:
+      - db
     volumes:
       - n8n_data:/home/node/.n8n
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana:/etc/grafana/provisioning
+    restart: unless-stopped
 
 volumes:
+  postgres_data:
   chroma_data:
-  redis_data:
   n8n_data:
+  prometheus_data:
+  grafana_data:
 `;
 }
 
-function generateDockerfile(): string {
-  return `FROM node:18-alpine
-
-WORKDIR /app
-
-COPY package*.json ./
-RUN npm ci --only=production
-
-COPY . .
-RUN npm run build
-
-EXPOSE 3000
-
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \\
-  CMD curl -f http://localhost:3000/health || exit 1
-
-CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0"]
-`;
-}
-
-function generateKubernetesDeployment(sessionData: any, domain: string): string {
+function generateKubernetesManifest(domain: string): string {
   return `apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ${domain.toLowerCase()}-ai-platform
+  name: ${domain}-ai-platform
   labels:
-    app: ${domain.toLowerCase()}-ai-platform
+    app: ${domain}-ai-platform
 spec:
-  replicas: ${sessionData?.concurrency || 2}
+  replicas: 3
   selector:
     matchLabels:
-      app: ${domain.toLowerCase()}-ai-platform
+      app: ${domain}-ai-platform
   template:
     metadata:
       labels:
-        app: ${domain.toLowerCase()}-ai-platform
+        app: ${domain}-ai-platform
     spec:
       containers:
-      - name: ai-platform
-        image: ai-platform:latest
+      - name: api
+        image: ${domain}-ai-platform:latest
         ports:
-        - containerPort: 3000
+        - containerPort: 8000
         env:
-        - name: NODE_ENV
-          value: "production"
         - name: DOMAIN
           value: "${domain}"
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 3000
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 3000
-          initialDelaySeconds: 5
-          periodSeconds: 5
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: ${domain}-secrets
+              key: database-url
         resources:
           requests:
             memory: "256Mi"
@@ -587,135 +494,233 @@ spec:
           limits:
             memory: "512Mi"
             cpu: "500m"
-`;
-}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
 
-function generateKubernetesService(): string {
-  return `apiVersion: v1
+---
+apiVersion: v1
 kind: Service
 metadata:
-  name: ai-platform-service
+  name: ${domain}-ai-platform-service
 spec:
   selector:
-    app: ai-platform
+    app: ${domain}-ai-platform
   ports:
   - protocol: TCP
     port: 80
-    targetPort: 3000
+    targetPort: 8000
   type: LoadBalancer
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ${domain}-secrets
+type: Opaque
+data:
+  database-url: <base64-encoded-database-url>
+  gemini-api-key: <base64-encoded-gemini-key>
+  openai-api-key: <base64-encoded-openai-key>
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ${domain}-ai-platform-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ${domain}-ai-platform
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
 `;
 }
 
-function generateReadme(sessionData: any, domain: string, compliance: string[]): string {
-  return `# ${domain} AI Platform
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
 
-Generated AI solution for ${domain} domain with the following specifications:
+  try {
+    const requestData: GitHubIntegrationRequest = await req.json();
+    console.log('GitHub integration request:', requestData.action);
 
-## Specifications
-- **Domain**: ${domain}
-- **Throughput**: ${sessionData?.throughput || 'Not specified'}
-- **Concurrency**: ${sessionData?.concurrency || 'Not specified'}
-- **SLA Target**: ${sessionData?.sla_target || 'Not specified'}%
-- **Compliance**: ${compliance.length > 0 ? compliance.join(', ') : 'None'}
-- **LLM Provider**: ${sessionData?.llm_provider || 'Gemini'}
-- **Token Budget**: ${sessionData?.token_budget || 'Not specified'}
+    if (!githubToken) {
+      return new Response(JSON.stringify({ 
+        error: 'GitHub token not configured' 
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
-## Quick Start
+    switch (requestData.action) {
+      case 'create-repo': {
+        const { orgName, repoName } = requestData;
+        if (!repoName) {
+          throw new Error('Repository name is required');
+        }
 
-1. **Deploy Infrastructure**:
-   \`\`\`bash
-   cd infra
-   terraform init
-   terraform apply
-   \`\`\`
+        const repo = await createGitHubRepo(orgName || '', repoName);
+        
+        // Log the repo creation
+        await supabase.from('audit_logs').insert({
+          action: 'github_repo_created',
+          resource_type: 'github_repository',
+          resource_id: repo.id.toString(),
+          details: {
+            repo_name: repo.name,
+            repo_url: repo.html_url,
+            org_name: orgName
+          }
+        });
 
-2. **Build and Deploy Application**:
-   \`\`\`bash
-   docker-compose up -d
-   \`\`\`
+        return new Response(JSON.stringify({ 
+          success: true, 
+          repo 
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
 
-3. **Import n8n Workflow**:
-   - Open n8n at http://localhost:5678
-   - Import \`workflows/data-pipeline.json\`
+      case 'create-pr': {
+        const { orgName, repoName, artifacts, sessionData, domain } = requestData;
+        if (!repoName || !artifacts || !domain) {
+          throw new Error('Repository name, artifacts, and domain are required');
+        }
 
-## Testing
+        const repoFullName = orgName ? `${orgName}/${repoName}` : repoName;
+        const branchName = `ai-generated-${Date.now()}`;
+        
+        // Create branch
+        await createGitHubBranch(repoFullName, branchName);
 
-Run the complete test suite:
-\`\`\`bash
-npm test
-npm run test:e2e
-npm run test:performance
-npm run smoke:test
-\`\`\`
+        // Generate and upload files
+        const files = generateArtifactFiles(artifacts, domain);
+        
+        for (const file of files) {
+          await uploadFileToGitHub(repoFullName, file.path, file.content, branchName);
+        }
 
-## Monitoring
+        // Create pull request
+        const prTitle = `AI Generated ${domain.charAt(0).toUpperCase() + domain.slice(1)} Platform`;
+        const prBody = `## AI Generated Platform Solution
 
-Access monitoring dashboards:
-- Grafana: http://localhost:3001
-- n8n: http://localhost:5678
-- ChromaDB: http://localhost:8000
+**Domain**: ${domain}
+**Generated**: ${new Date().toISOString()}
 
-## Compliance
+### Generated Components
+- ✅ Architecture Blueprint
+- ✅ Infrastructure Code (Terraform)
+- ✅ Workflow Automation (n8n)
+- ✅ CI/CD Pipeline
+- ✅ Docker Configuration
+- ✅ Kubernetes Manifests
+- ✅ Documentation
 
-${compliance.includes('HIPAA') ? '- HIPAA compliance enabled with encryption at rest and in transit' : ''}
-${compliance.includes('GDPR') ? '- GDPR compliance with data retention policies' : ''}
-${compliance.includes('SOC2') ? '- SOC2 compliance with audit logging' : ''}
-`;
-}
+### Key Features
+- Multi-LLM support with fallback
+- Vector database integration
+- Real-time cost optimization
+- Comprehensive monitoring
+- Scalable architecture
 
-function generateDeploymentDocs(): string {
-  return `# Deployment Guide
+### Next Steps
+1. Review the generated code
+2. Configure environment variables
+3. Set up API keys and secrets
+4. Deploy to your environment
+5. Run initial tests
 
-## Prerequisites
-- AWS CLI configured
-- Terraform >= 1.0
-- kubectl configured
-- Docker installed
+*Generated by AI Platform Advisor*`;
 
-## Infrastructure Deployment
+        const pr = await createPullRequest(repoFullName, branchName, prTitle, prBody);
 
-1. **Initialize Terraform**:
-   \`\`\`bash
-   cd infra
-   terraform init
-   \`\`\`
+        // Log the PR creation
+        await supabase.from('audit_logs').insert({
+          action: 'github_pr_created',
+          resource_type: 'github_pull_request',
+          resource_id: pr.id.toString(),
+          details: {
+            pr_number: pr.number,
+            pr_url: pr.html_url,
+            repo_name: repoFullName,
+            domain,
+            files_count: files.length
+          }
+        });
 
-2. **Plan Deployment**:
-   \`\`\`bash
-   terraform plan
-   \`\`\`
+        return new Response(JSON.stringify({ 
+          success: true, 
+          prUrl: pr.html_url,
+          pr 
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
 
-3. **Apply Infrastructure**:
-   \`\`\`bash
-   terraform apply
-   \`\`\`
+      case 'get-repos': {
+        const response = await fetch('https://api.github.com/user/repos?per_page=100', {
+          headers: {
+            'Authorization': `token ${githubToken}`,
+            'Accept': 'application/vnd.github.v3+json',
+          },
+        });
 
-## Application Deployment
+        if (!response.ok) {
+          throw new Error(`Failed to fetch repositories: ${response.status}`);
+        }
 
-1. **Build Docker Image**:
-   \`\`\`bash
-   docker build -t ai-platform:latest .
-   \`\`\`
+        const repos = await response.json();
+        return new Response(JSON.stringify({ 
+          success: true, 
+          repos 
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
 
-2. **Deploy to Kubernetes**:
-   \`\`\`bash
-   kubectl apply -f k8s/
-   \`\`\`
+      default:
+        return new Response(JSON.stringify({ 
+          error: `Unknown action: ${requestData.action}` 
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+    }
 
-## Verification
-
-1. **Health Check**:
-   \`\`\`bash
-   curl http://your-app-url/health
-   \`\`\`
-
-2. **Run Smoke Tests**:
-   \`\`\`bash
-   npm run smoke:test
-   \`\`\`
-`;
-}
-
-function generateCommitSha(): string {
-  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-}
+  } catch (error) {
+    console.error('GitHub integration error:', error);
+    return new Response(JSON.stringify({ 
+      error: 'GitHub integration failed',
+      details: error.message 
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+});
