@@ -41,10 +41,14 @@ const App = () => {
 
   const handleAuthUser = async (authUser: any) => {
     try {
-      // Get or create user profile
+      // Get or create user profile with proper joins
       const { data: profile, error } = await supabase
         .from('users')
-        .select('*, roles(*), tenants(*)')
+        .select(`
+          *,
+          roles:role_id(name),
+          tenants:tenant_id(name)
+        `)
         .eq('auth_user_id', authUser.id)
         .maybeSingle();
 
@@ -54,14 +58,33 @@ const App = () => {
 
       // If no profile exists, create one
       if (!profile) {
+        // Get default tenant and role
+        const { data: defaultTenant } = await supabase
+          .from('tenants')
+          .select('id')
+          .limit(1)
+          .single();
+
+        const { data: defaultRole } = await supabase
+          .from('roles')
+          .select('id')
+          .eq('name', 'user')
+          .single();
+
         const { data: newProfile, error: createError } = await supabase
           .from('users')
           .insert({
             auth_user_id: authUser.id,
             email: authUser.email,
-            name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User'
+            name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
+            tenant_id: defaultTenant?.id,
+            role_id: defaultRole?.id
           })
-          .select('*, roles(*), tenants(*)')
+          .select(`
+            *,
+            roles:role_id(name),
+            tenants:tenant_id(name)
+          `)
           .single();
 
         if (createError) {

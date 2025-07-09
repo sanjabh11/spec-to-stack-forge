@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { RequirementWizard } from '@/components/RequirementWizard';
+import RequirementWizard from '@/components/RequirementWizard';
 import { ArtifactGenerator } from '@/components/ArtifactGenerator';
 import { DevOpsDashboard } from '@/components/DevOpsDashboard';
 import { CostEstimator } from '@/components/CostEstimator';
@@ -68,7 +68,7 @@ export default function PlatformBuilder() {
         <TabsContent value="wizard">
           <div className="min-h-[600px]">
             {currentPhase === 'requirements' && (
-              <RequirementWizard onComplete={handleRequirementsComplete} />
+              <RequirementWizard onComplete={handleRequirementsComplete} domain="AI Platform" />
             )}
 
             {currentPhase === 'generation' && sessionId && specification && (

@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 interface Question {
   id: string;
   question: string;
-  type: 'text' | 'select' | 'multiselect' | 'number';
+  type: 'text' | 'select' | 'multiselect' | 'number' | 'textarea';
   options?: string[];
   required: boolean;
   category: string;
