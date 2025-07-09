@@ -1,8 +1,7 @@
-
 import { useState } from "react";
 import { Header } from "@/components/Header";
 import { DomainSelector } from "@/components/DomainSelector";
-import EnhancedChatInterface from "@/components/EnhancedChatInterface";
+import RequirementWizard from "@/components/RequirementWizard";
 import { GenerationResults } from "@/components/GenerationResults";
 import { StatsOverview } from "@/components/StatsOverview";
 import { DeploymentDashboard } from "@/components/DeploymentDashboard";
@@ -25,14 +24,11 @@ import {
   Settings, 
   Database, 
   ArrowLeft,
-  GitBranch,
   BarChart3,
   Upload,
   DollarSign,
   Zap,
-  Brain,
   Shield,
-  Cpu,
   Workflow
 } from "lucide-react";
 import { RequirementHistory } from '@/components/RequirementHistory';
@@ -46,9 +42,8 @@ const EnhancedIndex = ({ user, onLogout }: IndexProps) => {
   const [selectedDomain, setSelectedDomain] = useState("");
   const [sessionData, setSessionData] = useState(null);
   const [artifacts, setArtifacts] = useState(null);
-  const [currentView, setCurrentView] = useState<'domains' | 'chat' | 'results' | 'deploy' | 'upload' | 'observability' | 'executive' | 'workflows'>('domains');
+  const [currentView, setCurrentView] = useState<'domains' | 'wizard' | 'results' | 'deploy' | 'upload' | 'observability' | 'executive' | 'workflows'>('domains');
   const [showHealthCheck, setShowHealthCheck] = useState(false);
-  const [restoredSession, setRestoredSession] = useState<any>(null);
 
   const resetToStart = () => {
     setSelectedDomain("");
@@ -57,7 +52,7 @@ const EnhancedIndex = ({ user, onLogout }: IndexProps) => {
     setCurrentView('domains');
   };
 
-  const handleSessionComplete = (data: any) => {
+  const handleWizardComplete = (data: any) => {
     setSessionData(data);
     setCurrentView('results');
   };
@@ -82,14 +77,14 @@ const EnhancedIndex = ({ user, onLogout }: IndexProps) => {
             <User className="w-6 h-6 text-blue-600" />
             <div>
               <p className="font-semibold text-gray-900">
-                {user?.name || "Guest"}
+                {user?.name || user?.email?.split('@')[0] || "User"}
               </p>
               <p className="text-sm text-gray-600">
                 {user?.email || "No email"}
               </p>
             </div>
             <Badge variant="outline" className="ml-2">
-              {user?.role || "No role"}
+              {user?.role || "user"}
             </Badge>
           </div>
           <div className="flex items-center space-x-2">
@@ -205,8 +200,7 @@ const EnhancedIndex = ({ user, onLogout }: IndexProps) => {
                 onRestore={(session) => {
                   setSessionData(session.session_data);
                   setSelectedDomain(session.session_data?.domain || '');
-                  setCurrentView('chat');
-                  setRestoredSession(session);
+                  setCurrentView('wizard');
                 }}
               />
             </div>
@@ -214,14 +208,17 @@ const EnhancedIndex = ({ user, onLogout }: IndexProps) => {
             <DomainSelector 
               onSelect={(domain) => {
                 setSelectedDomain(domain);
-                setCurrentView('chat');
+                setCurrentView('wizard');
               }} 
             />
           </div>
         )}
 
-        {currentView === 'chat' && selectedDomain && (
-          <EnhancedChatInterface domain={selectedDomain} />
+        {currentView === 'wizard' && selectedDomain && (
+          <RequirementWizard 
+            domain={selectedDomain} 
+            onComplete={handleWizardComplete}
+          />
         )}
 
         {currentView === 'results' && sessionData && (
@@ -316,7 +313,6 @@ const EnhancedIndex = ({ user, onLogout }: IndexProps) => {
             <EnhancedDocumentUpload 
               onUploadComplete={(docs) => {
                 console.log('Documents uploaded:', docs);
-                // Optionally redirect back to domains or show success
               }}
             />
           </div>

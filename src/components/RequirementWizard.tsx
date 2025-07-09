@@ -1,412 +1,284 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { apiClient } from '@/lib/apiClient';
-import { toast } from 'sonner';
-import { CostEstimator } from '@/components/CostEstimator';
+import { ArrowLeft, ArrowRight, CheckCircle } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
-interface RequirementWizardProps {
-  onComplete: (sessionId: string, specification: any) => void;
+interface Question {
+  id: string;
+  question: string;
+  type: 'text' | 'select' | 'multiselect' | 'number';
+  options?: string[];
+  required: boolean;
+  category: string;
 }
 
-const DOMAINS = [
-  'Healthcare', 'Finance', 'Legal', 'Manufacturing', 'Retail', 'Education', 
-  'Government', 'Technology', 'Energy', 'Transportation'
-];
+interface WizardProps {
+  domain: string;
+  onComplete: (sessionData: any) => void;
+}
 
-const COMPLIANCE_OPTIONS = [
-  { id: 'HIPAA', label: 'HIPAA (Healthcare)' },
-  { id: 'SOC2', label: 'SOC 2 (Security)' },
-  { id: 'GDPR', label: 'GDPR (Privacy)' },
-  { id: 'PCI-DSS', label: 'PCI DSS (Payment)' },
-  { id: 'ISO27001', label: 'ISO 27001 (Security)' },
-  { id: 'FedRAMP', label: 'FedRAMP (Government)' }
-];
-
-const steps = [
-  'Domain Selection',
-  'Basic Requirements', 
-  'Technical Specifications',
-  'Compliance & Security',
-  'Cost Estimation',
-  'Final Review'
-];
-
-export const RequirementWizard: React.FC<RequirementWizardProps> = ({ onComplete }) => {
+export default function RequirementWizard({ domain, onComplete }: WizardProps) {
   const [currentStep, setCurrentStep] = useState(0);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [responses, setResponses] = useState<any>({});
-  const [questions, setQuestions] = useState<any[]>([]);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [answers, setAnswers] = useState<Record<string, any>>({});
+  const [sessionId, setSessionId] = useState<string>('');
   const [loading, setLoading] = useState(false);
-  const [costEstimate, setCostEstimate] = useState<any>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
-    if (responses.domain) {
-      loadDomainQuestions();
-    }
-  }, [responses.domain]);
+    initializeSession();
+  }, [domain]);
 
-  const loadDomainQuestions = async () => {
+  const initializeSession = async () => {
     try {
-      setLoading(true);
-      const session = await apiClient.startRequirementSession(responses.domain);
-      setSessionId(session.sessionId);
-      
-      // Generate domain-specific questions
-      const domainQuestions = generateDomainQuestions(responses.domain);
-      setQuestions(domainQuestions);
-    } catch (error) {
-      toast.error('Failed to initialize session');
-      console.error(error);
-    } finally {
-      setLoading(false);
+      const { data, error } = await supabase.functions.invoke('start-requirement-session', {
+        body: { domain }
+      });
+
+      if (error) throw error;
+
+      setSessionId(data.sessionId);
+      setQuestions(data.questions);
+    } catch (error: any) {
+      toast({
+        title: "Failed to start session",
+        description: error.message,
+        variant: "destructive"
+      });
     }
   };
 
-  const generateDomainQuestions = (domain: string) => {
-    const baseQuestions = [
-      {
-        id: 'objective',
-        question: 'What is the primary objective of your AI platform?',
-        type: 'textarea',
-        required: true
-      },
-      {
-        id: 'users',
-        question: 'How many users do you expect to serve?',
-        type: 'select',
-        options: ['1-100', '100-1K', '1K-10K', '10K-100K', '100K+'],
-        required: true
-      },
-      {
-        id: 'data_types',
-        question: 'What types of data will you process?',
-        type: 'multiselect',
-        options: ['Text', 'Images', 'Audio', 'Video', 'Structured Data', 'Time Series'],
-        required: true
-      }
-    ];
-
-    const domainSpecific = getDomainSpecificQuestions(domain);
-    return [...baseQuestions, ...domainSpecific];
+  const handleAnswer = (value: any) => {
+    setAnswers(prev => ({
+      ...prev,
+      [questions[currentStep].id]: value
+    }));
   };
 
-  const getDomainSpecificQuestions = (domain: string) => {
-    switch (domain) {
-      case 'Healthcare':
-        return [
-          {
-            id: 'patient_data',
-            question: 'Will you process patient health information (PHI)?',
-            type: 'boolean',
-            required: true
-          },
-          {
-            id: 'medical_devices',
-            question: 'Will you integrate with medical devices or EHR systems?',
-            type: 'boolean'
-          }
-        ];
-      case 'Finance':
-        return [
-          {
-            id: 'financial_data',
-            question: 'What types of financial data will you process?',
-            type: 'multiselect',
-            options: ['Transaction Data', 'Market Data', 'Customer Data', 'Risk Data']
-          },
-          {
-            id: 'real_time',
-            question: 'Do you need real-time processing capabilities?',
-            type: 'boolean'
-          }
-        ];
-      case 'Legal':
-        return [
-          {
-            id: 'document_types',
-            question: 'What types of legal documents will you process?',
-            type: 'multiselect',
-            options: ['Contracts', 'Case Law', 'Regulations', 'Patents', 'Litigation Documents']
-          },
-          {
-            id: 'confidentiality',
-            question: 'What level of confidentiality is required?',
-            type: 'select',
-            options: ['Public', 'Internal', 'Confidential', 'Highly Confidential']
-          }
-        ];
-      default:
-        return [];
-    }
-  };
-
-  const handleStepSubmit = async () => {
-    if (currentStep < steps.length - 1) {
-      setCurrentStep(currentStep + 1);
+  const nextStep = async () => {
+    if (currentStep < questions.length - 1) {
+      setCurrentStep(prev => prev + 1);
     } else {
-      await finalizeSpecification();
+      await completeSession();
     }
   };
 
-  const finalizeSpecification = async () => {
+  const prevStep = () => {
+    if (currentStep > 0) {
+      setCurrentStep(prev => prev - 1);
+    }
+  };
+
+  const completeSession = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      
-      const requirements = {
-        objective: responses.objective,
-        users: responses.users,
-        throughput: responses.throughput,
-        sla_target: responses.sla_target,
-        llm_provider: responses.llm_provider,
-        compliance: responses.compliance,
-        data_types: responses.data_types,
-        // Add any other fields you collect in responses
-      };
+      const { data, error } = await supabase.functions.invoke('process-requirement', {
+        body: {
+          sessionId,
+          answers,
+          action: 'complete'
+        }
+      });
 
-      const specification = {
-        domain: responses.domain,
-        ...responses,
-        requirements,
-        cost_estimate: costEstimate,
-        compliance: responses.compliance || [],
-        generated_at: new Date().toISOString()
-      };
+      if (error) throw error;
 
-      // Validate specification
-      await apiClient.validateSpec(specification);
-
-      toast.success('Specification generated successfully!');
-      onComplete(sessionId!, specification);
-    } catch (error) {
-      toast.error('Failed to generate specification');
-      console.error(error);
+      onComplete({
+        sessionId,
+        domain,
+        answers,
+        specification: data.specification,
+        recommendations: data.recommendations
+      });
+    } catch (error: any) {
+      toast({
+        title: "Failed to complete session",
+        description: error.message,
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCostCalculated = (estimate: any) => {
-    setCostEstimate(estimate);
-  };
-
-  const renderStepContent = () => {
-    switch (currentStep) {
-      case 0:
-        return (
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">Select Domain</label>
-              <Select value={responses.domain} onValueChange={(value) => setResponses({...responses, domain: value})}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose your domain" />
-                </SelectTrigger>
-                <SelectContent>
-                  {DOMAINS.map(domain => (
-                    <SelectItem key={domain} value={domain}>{domain}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+  if (questions.length === 0) {
+    return (
+      <Card className="w-full max-w-2xl mx-auto">
+        <CardContent className="flex items-center justify-center p-8">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p>Initializing requirements session...</p>
           </div>
-        );
+        </CardContent>
+      </Card>
+    );
+  }
 
-      case 1:
-        return (
-          <div className="space-y-4">
-            {questions.slice(0, 3).map(question => (
-              <div key={question.id}>
-                <label className="text-sm font-medium">{question.question}</label>
-                {question.type === 'textarea' && (
-                  <Textarea
-                    value={responses[question.id] || ''}
-                    onChange={(e) => setResponses({...responses, [question.id]: e.target.value})}
-                    placeholder="Enter your response..."
-                  />
-                )}
-                {question.type === 'select' && (
-                  <Select value={responses[question.id]} onValueChange={(value) => setResponses({...responses, [question.id]: value})}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select an option" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {question.options?.map((option: string) => (
-                        <SelectItem key={option} value={option}>{option}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-            ))}
-          </div>
-        );
-
-      case 2:
-        return (
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">Expected Throughput (requests/second)</label>
-              <Input
-                type="number"
-                value={responses.throughput || ''}
-                onChange={(e) => setResponses({...responses, throughput: e.target.value})}
-                placeholder="e.g., 100"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">SLA Target (%)</label>
-              <Input
-                type="number"
-                value={responses.sla_target || ''}
-                onChange={(e) => setResponses({...responses, sla_target: e.target.value})}
-                placeholder="e.g., 99.9"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Preferred LLM Provider</label>
-              <Select value={responses.llm_provider} onValueChange={(value) => setResponses({...responses, llm_provider: value})}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose LLM provider" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="openai">OpenAI GPT</SelectItem>
-                  <SelectItem value="gemini">Google Gemini</SelectItem>
-                  <SelectItem value="claude">Anthropic Claude</SelectItem>
-                  <SelectItem value="local">Local/Open Source</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        );
-
-      case 3:
-        return (
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">Compliance Requirements</label>
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                {COMPLIANCE_OPTIONS.map(option => (
-                  <div key={option.id} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={option.id}
-                      checked={responses.compliance?.includes(option.id)}
-                      onCheckedChange={(checked) => {
-                        const current = responses.compliance || [];
-                        if (checked) {
-                          setResponses({...responses, compliance: [...current, option.id]});
-                        } else {
-                          setResponses({...responses, compliance: current.filter((c: string) => c !== option.id)});
-                        }
-                      }}
-                    />
-                    <label htmlFor={option.id} className="text-sm">{option.label}</label>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        );
-
-      case 4: // Cost Estimation
-        return (
-          <div className="space-y-4">
-            <div className="text-center space-y-2">
-              <h3 className="text-lg font-semibold">Cost Estimation</h3>
-              <p className="text-sm text-muted-foreground">
-                Get an accurate cost estimate for your AI platform based on your requirements
-              </p>
-            </div>
-            <CostEstimator
-              initialData={{
-                domain: responses.domain,
-                data_volume_gb: parseFloat(responses.data_volume) || 50,
-                throughput_qps: parseInt(responses.throughput) || 100,
-                concurrent_users: parseInt(responses.users?.split('-')[0]) || 20,
-                model: responses.llm_provider === 'openai' ? 'gpt-4' : 
-                       responses.llm_provider === 'gemini' ? 'gemini-2.5' : 'local-model',
-                compliance_requirements: responses.compliance || [],
-              }}
-              onCostCalculated={handleCostCalculated}
-              showTitle={false}
-            />
-          </div>
-        );
-
-      case 5: // Final Review
-        return (
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Review Your Specification</h3>
-            <div className="space-y-2">
-              <div><strong>Domain:</strong> {responses.domain}</div>
-              <div><strong>Objective:</strong> {responses.objective}</div>
-              <div><strong>Users:</strong> {responses.users}</div>
-              <div><strong>Throughput:</strong> {responses.throughput} req/s</div>
-              <div><strong>SLA:</strong> {responses.sla_target}%</div>
-              <div><strong>LLM Provider:</strong> {responses.llm_provider}</div>
-              {responses.compliance?.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  <strong>Compliance:</strong>
-                  {responses.compliance.map((c: string) => (
-                    <Badge key={c} variant="secondary">{c}</Badge>
-                  ))}
-                </div>
-              )}
-              {costEstimate && (
-                <div className="mt-4 p-4 border rounded-lg bg-green-50">
-                  <strong>Estimated Monthly Cost:</strong> ${costEstimate.total_monthly_cost}
-                  <div className="text-sm text-muted-foreground mt-1">
-                    This includes infrastructure, AI models, storage, and compliance requirements
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        );
-
-      default:
-        return null;
-    }
-  };
-
-  const progress = ((currentStep + 1) / steps.length) * 100;
+  const currentQuestion = questions[currentStep];
+  const progress = ((currentStep + 1) / questions.length) * 100;
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader>
-        <CardTitle>AI Platform Requirements Wizard</CardTitle>
-        <CardDescription>
-          Step {currentStep + 1} of {steps.length}: {steps[currentStep]}
-        </CardDescription>
-        <Progress value={progress} className="w-full" />
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {renderStepContent()}
-        
-        <div className="flex justify-between">
-          {currentStep > 0 && (
-            <Button 
-              variant="outline" 
-              onClick={() => setCurrentStep(currentStep - 1)}
-              disabled={loading}
-            >
-              Previous
-            </Button>
+    <div className="w-full max-w-4xl mx-auto space-y-6">
+      {/* Progress Header */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center space-x-2">
+                <span>Requirements Capture</span>
+                <Badge variant="outline">{domain}</Badge>
+              </CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                Step {currentStep + 1} of {questions.length} • {currentQuestion.category}
+              </p>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-bold text-blue-600">
+                {Math.round(progress)}%
+              </div>
+              <div className="text-xs text-muted-foreground">Complete</div>
+            </div>
+          </div>
+          <Progress value={progress} className="mt-4" />
+        </CardHeader>
+      </Card>
+
+      {/* Question Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">{currentQuestion.question}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {currentQuestion.type === 'text' && (
+            <Input
+              value={answers[currentQuestion.id] || ''}
+              onChange={(e) => handleAnswer(e.target.value)}
+              placeholder="Enter your answer..."
+              className="w-full"
+            />
           )}
-          <Button 
-            onClick={handleStepSubmit}
-            disabled={loading}
-            className="ml-auto"
+
+          {currentQuestion.type === 'textarea' && (
+            <Textarea
+              value={answers[currentQuestion.id] || ''}
+              onChange={(e) => handleAnswer(e.target.value)}
+              placeholder="Provide detailed information..."
+              rows={4}
+              className="w-full"
+            />
+          )}
+
+          {currentQuestion.type === 'select' && currentQuestion.options && (
+            <Select 
+              value={answers[currentQuestion.id] || ''} 
+              onValueChange={handleAnswer}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select an option..." />
+              </SelectTrigger>
+              <SelectContent>
+                {currentQuestion.options.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
+          {currentQuestion.type === 'number' && (
+            <Input
+              type="number"
+              value={answers[currentQuestion.id] || ''}
+              onChange={(e) => handleAnswer(parseInt(e.target.value))}
+              placeholder="Enter a number..."
+              className="w-full"
+            />
+          )}
+
+          {currentQuestion.type === 'multiselect' && currentQuestion.options && (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">Select all that apply:</p>
+              <div className="flex flex-wrap gap-2">
+                {currentQuestion.options.map((option) => {
+                  const selected = (answers[currentQuestion.id] || []).includes(option);
+                  return (
+                    <Badge
+                      key={option}
+                      variant={selected ? "default" : "outline"}
+                      className="cursor-pointer"
+                      onClick={() => {
+                        const current = answers[currentQuestion.id] || [];
+                        const updated = selected
+                          ? current.filter((item: string) => item !== option)
+                          : [...current, option];
+                        handleAnswer(updated);
+                      }}
+                    >
+                      {option}
+                    </Badge>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Navigation */}
+      <Card>
+        <CardContent className="flex items-center justify-between p-4">
+          <Button
+            variant="outline"
+            onClick={prevStep}
+            disabled={currentStep === 0}
+            className="flex items-center space-x-2"
           >
-            {loading ? 'Processing...' : currentStep < steps.length - 1 ? 'Next' : 'Generate Specification'}
+            <ArrowLeft className="w-4 h-4" />
+            <span>Previous</span>
           </Button>
-        </div>
-      </CardContent>
-    </Card>
+
+          <div className="flex items-center space-x-2">
+            {questions.map((_, index) => (
+              <div
+                key={index}
+                className={`w-2 h-2 rounded-full ${
+                  index <= currentStep ? 'bg-blue-600' : 'bg-gray-300'
+                }`}
+              />
+            ))}
+          </div>
+
+          <Button
+            onClick={nextStep}
+            disabled={
+              currentQuestion.required && 
+              (!answers[currentQuestion.id] || 
+               (Array.isArray(answers[currentQuestion.id]) && answers[currentQuestion.id].length === 0))
+            }
+            className="flex items-center space-x-2"
+          >
+            {currentStep === questions.length - 1 ? (
+              <>
+                <CheckCircle className="w-4 h-4" />
+                <span>{loading ? 'Completing...' : 'Complete'}</span>
+              </>
+            ) : (
+              <>
+                <span>Next</span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
   );
-};
+}
