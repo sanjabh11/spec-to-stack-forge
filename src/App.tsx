@@ -62,7 +62,8 @@ const App = () => {
             auth_user_id: authUser.id,
             email: authUser.email,
             name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
-            role: 'user' // Set default role directly
+            role: 'user',
+            tenant_id: 'default'
           })
           .select()
           .single();
@@ -79,7 +80,7 @@ const App = () => {
         profile: userProfile,
         name: userProfile?.name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
         role: userProfile?.role || 'user',
-        tenant_id: userProfile?.tenant_id
+        tenant_id: userProfile?.tenant_id || 'default'
       });
     } catch (error) {
       console.error('Auth user handling error:', error);

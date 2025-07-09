@@ -31,14 +31,14 @@ export default function AuthPage({ onLogin }: { onLogin: (user: any) => void }) 
           .from('users')
           .select('*')
           .eq('auth_user_id', data.user.id)
-          .single();
+          .maybeSingle();
 
         onLogin({
           ...data.user,
           profile,
           name: profile?.name || data.user.user_metadata?.name || data.user.email?.split('@')[0] || 'User',
           role: profile?.role || 'user',
-          tenant_id: profile?.tenant_id
+          tenant_id: profile?.tenant_id || 'default'
         });
       }
     } catch (error: any) {
