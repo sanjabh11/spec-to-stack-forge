@@ -41,14 +41,10 @@ const App = () => {
 
   const handleAuthUser = async (authUser: any) => {
     try {
-      // Get or create user profile with proper joins
+      // Get user profile first
       const { data: profile, error } = await supabase
         .from('users')
-        .select(`
-          *,
-          roles:role_id(name),
-          tenants:tenant_id(name)
-        `)
+        .select('*')
         .eq('auth_user_id', authUser.id)
         .maybeSingle();
 
@@ -56,57 +52,35 @@ const App = () => {
         console.error('Profile fetch error:', error);
       }
 
-      // If no profile exists, create one
+      let userProfile = profile;
+
+      // If no profile exists, create one with default values
       if (!profile) {
-        // Get default tenant and role
-        const { data: defaultTenant } = await supabase
-          .from('tenants')
-          .select('id')
-          .limit(1)
-          .single();
-
-        const { data: defaultRole } = await supabase
-          .from('roles')
-          .select('id')
-          .eq('name', 'user')
-          .single();
-
         const { data: newProfile, error: createError } = await supabase
           .from('users')
           .insert({
             auth_user_id: authUser.id,
             email: authUser.email,
             name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
-            tenant_id: defaultTenant?.id,
-            role_id: defaultRole?.id
+            role: 'user' // Set default role directly
           })
-          .select(`
-            *,
-            roles:role_id(name),
-            tenants:tenant_id(name)
-          `)
+          .select()
           .single();
 
         if (createError) {
           console.error('Profile creation error:', createError);
         } else {
-          setUser({
-            ...authUser,
-            profile: newProfile,
-            name: newProfile?.name || authUser.email?.split('@')[0],
-            role: newProfile?.roles?.name || 'user',
-            tenant_id: newProfile?.tenant_id
-          });
+          userProfile = newProfile;
         }
-      } else {
-        setUser({
-          ...authUser,
-          profile,
-          name: profile?.name || authUser.email?.split('@')[0],
-          role: profile?.roles?.name || 'user',
-          tenant_id: profile?.tenant_id
-        });
       }
+
+      setUser({
+        ...authUser,
+        profile: userProfile,
+        name: userProfile?.name || authUser.email?.split('@')[0] || 'User',
+        role: userProfile?.role || 'user',
+        tenant_id: userProfile?.tenant_id
+      });
     } catch (error) {
       console.error('Auth user handling error:', error);
     } finally {

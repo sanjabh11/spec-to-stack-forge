@@ -26,22 +26,18 @@ export default function AuthPage({ onLogin }: { onLogin: (user: any) => void }) 
       if (error) throw error;
 
       if (data.user) {
-        // Get user profile with proper joins
+        // Get user profile
         const { data: profile } = await supabase
           .from('users')
-          .select(`
-            *,
-            roles:role_id(name),
-            tenants:tenant_id(name)
-          `)
+          .select('*')
           .eq('auth_user_id', data.user.id)
           .single();
 
         onLogin({
           ...data.user,
           profile,
-          name: profile?.name || data.user.email?.split('@')[0],
-          role: profile?.roles?.name || 'user',
+          name: profile?.name || data.user.email?.split('@')[0] || 'User',
+          role: profile?.role || 'user',
           tenant_id: profile?.tenant_id
         });
       }

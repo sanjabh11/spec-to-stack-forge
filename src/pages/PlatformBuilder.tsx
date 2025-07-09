@@ -15,9 +15,9 @@ export default function PlatformBuilder() {
   const [specification, setSpecification] = useState<any>(null);
   const [artifacts, setArtifacts] = useState<any>(null);
 
-  const handleRequirementsComplete = (id: string, spec: any) => {
-    setSessionId(id);
-    setSpecification(spec);
+  const handleRequirementsComplete = (sessionData: any) => {
+    setSessionId(sessionData.sessionId);
+    setSpecification(sessionData.specification);
     setCurrentPhase('generation');
   };
 
