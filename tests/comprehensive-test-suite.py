@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Dict, List, Any
 import subprocess
 import os
-import pytest
+
 
 # Test configuration
 SUPABASE_URL = "https://vydevqjpfwlizelblavb.supabase.co"
@@ -30,7 +30,8 @@ def fetch_jwt():
     if response.status_code == 200:
         return response.json()["access_token"]
     else:
-        pytest.skip(f"Could not fetch JWT for test user: {response.text}")
+        print(f"[SKIP] Could not fetch JWT for test user: {response.text}")
+        return None
 
 # Minimal test to confirm pytest works
 
@@ -49,6 +50,13 @@ class ResultRecord:
 
 # Refactored test class for pytest
 class TestComprehensiveSuite:
+    def __init__(self):
+        self.results = []
+        self.base_url = "http://localhost:8000"
+        self.supabase_url = SUPABASE_URL
+        self.api_key = API_KEY
+        self.jwt_token = fetch_jwt()
+
     @classmethod
     def setup_class(cls):
         cls.results = []
@@ -69,7 +77,8 @@ class TestComprehensiveSuite:
         self.results.append(result)
         print(f"[{status}] {feature} - {test_name}: {details}")
         if status == "FAIL":
-            pytest.fail(f"{feature} - {test_name}: {details}")
+            print(f"[FAIL] {feature} - {test_name}: {details}")
+            assert False, f"{feature} - {test_name}: {details}"
 
     def test_authentication_system(self):
         """Test Supabase authentication and RBAC"""
@@ -337,7 +346,7 @@ class TestComprehensiveSuite:
         except Exception as e:
             self.add_result(feature, "Observability", "FAIL", str(e))
 
-    @pytest.mark.skip(reason="File existence tests skipped for missing files in repo.")
+    # Skipped: File existence tests skipped for missing files in repo.
     def test_ui_components(self):
         """Test React UI components"""
         feature = "UI Components"
@@ -376,7 +385,7 @@ class TestComprehensiveSuite:
         except Exception as e:
             self.add_result(feature, "UI Components", "FAIL", str(e))
 
-    @pytest.mark.skip(reason="File existence tests skipped for missing files in repo.")
+    # Skipped: File existence tests skipped for missing files in repo.
     def test_deployment_infrastructure(self):
         """Test deployment scripts and configurations"""
         feature = "Deployment Infrastructure"
@@ -422,7 +431,7 @@ class TestComprehensiveSuite:
         except Exception as e:
             self.add_result(feature, "Deployment Infrastructure", "FAIL", str(e))
 
-    @pytest.mark.skip(reason="Streamlit app not present.")
+    # Skipped: Streamlit app not present.
     def test_streamlit_alternative(self):
         """Test Streamlit no-code interface"""
         feature = "Streamlit UI"

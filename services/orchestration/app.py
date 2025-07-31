@@ -8,6 +8,7 @@ import json
 import os
 from datetime import datetime
 import logging
+from starlette.middleware.base import BaseHTTPMiddleware
 from supabase import create_client, Client
 
 # Configure logging
@@ -15,6 +16,45 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="AI Advisor Orchestration API", version="1.0.0")
+
+# -------------------------------------------------------------------
+# Audit Logging Middleware
+# -------------------------------------------------------------------
+class AuditLoggerMiddleware(BaseHTTPMiddleware):
+    """Middleware that stores request/response metadata into Supabase.audit_logs"""
+
+    async def dispatch(self, request, call_next):
+        response = None
+        status = "success"
+        try:
+            response = await call_next(request)
+        except Exception as exc:
+            status = "error"
+            raise exc
+        finally:
+            # Persist minimal audit info – do not block if Supabase unreachable
+            if supabase:
+                try:
+                    tenant_id = request.headers.get("X-Tenant-Id", "default")
+                    user_id = request.headers.get("X-User-Id")
+                    supabase.table("audit_logs").insert({
+                        "tenant_id": tenant_id,
+                        "user_id": user_id,
+                        "action": request.method,
+                        "resource_type": "api",
+                        "resource_id": None,
+                        "details": {
+                            "path": str(request.url.path),
+                            "status": status,
+                            "status_code": response.status_code if response else 500
+                        }
+                    }).execute()
+                except Exception as log_err:
+                    logger.warning(f"Failed to write audit log: {log_err}")
+        return response
+
+# Register the middleware
+app.add_middleware(AuditLoggerMiddleware)
 
 # CORS middleware
 app.add_middleware(
@@ -328,24 +368,90 @@ async def execute_workflow(
     request: WorkflowRequest,
     user: dict = Depends(get_current_user)
 ):
-    """Execute n8n workflow"""
+    """Execute n8n workflow (refactored for best practices)."""
+    if not N8N_API_KEY:
+        logger.error("N8N_API_KEY is not configured.")
+        raise HTTPException(status_code=500, detail="N8N integration is not configured.")
+    n8n_url = f"{SERVICES['n8n']}/api/v1/workflows/{request.workflow_id}/executions"
+    headers = {"X-N8N-API-Key": N8N_API_KEY}
+
+    # Check workflow existence
     try:
         async with httpx.AsyncClient() as client:
-            # Trigger n8n workflow
-            response = await client.post(
-                f"{SERVICES['n8n']}/api/v1/workflows/{request.workflow_id}/execute",
-                json=request.inputs,
-                headers={"Authorization": f"Bearer {os.getenv('N8N_API_KEY', '')}"}
-            )
-            
-            if response.status_code == 200:
-                return {"status": "success", "execution": response.json()}
-            else:
-                raise HTTPException(status_code=response.status_code, detail="Workflow execution failed")
-                
+            wf_check_url = f"{SERVICES['n8n']}/api/v1/workflows/{request.workflow_id}"
+            wf_resp = await client.get(wf_check_url, headers=headers, timeout=10.0)
+            if wf_resp.status_code != 200:
+                logger.error(f"Workflow {request.workflow_id} not found in N8N.")
+                raise HTTPException(status_code=404, detail="Workflow not found in N8N.")
     except Exception as e:
-        logger.error(f"Workflow execution error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error checking workflow existence: {e}")
+        raise HTTPException(status_code=502, detail="Could not verify workflow existence.")
+
+    workflow_payload = request.inputs.copy()
+    workflow_payload.update({
+        "tenant_id": request.tenant_id,
+        "user_id": user.get("user_id")
+    })
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(n8n_url, headers=headers, json=workflow_payload, timeout=30.0)
+            response.raise_for_status()
+        logger.info(f"Successfully executed N8N workflow {request.workflow_id}. Response: {response.json()}")
+        # Audit log success
+        if supabase:
+            try:
+                supabase.table("audit_logs").insert({
+                    "tenant_id": user.get("tenant_id", "default"),
+                    "user_id": user.get("user_id"),
+                    "action": "n8n_workflow_execute",
+                    "resource_type": "n8n",
+                    "details": {"workflow_id": request.workflow_id, "status": "success"}
+                }).execute()
+            except Exception as log_err:
+                logger.warning(f"Failed to write audit log: {log_err}")
+        return {"status": "success", "execution_data": response.json()}
+    except httpx.HTTPStatusError as e:
+        logger.error(f"HTTP error executing N8N workflow {request.workflow_id}: {e.response.status_code} - {e.response.text}")
+        if supabase:
+            try:
+                supabase.table("audit_logs").insert({
+                    "tenant_id": user.get("tenant_id", "default"),
+                    "user_id": user.get("user_id"),
+                    "action": "n8n_workflow_execute",
+                    "resource_type": "n8n",
+                    "details": {"workflow_id": request.workflow_id, "status": "error", "error": e.response.text}
+                }).execute()
+            except Exception as log_err:
+                logger.warning(f"Failed to write audit log: {log_err}")
+        raise HTTPException(status_code=e.response.status_code, detail=f"Error from N8N: {e.response.text}")
+    except httpx.RequestError as e:
+        logger.error(f"Request error executing N8N workflow {request.workflow_id}: {e}")
+        if supabase:
+            try:
+                supabase.table("audit_logs").insert({
+                    "tenant_id": user.get("tenant_id", "default"),
+                    "user_id": user.get("user_id"),
+                    "action": "n8n_workflow_execute",
+                    "resource_type": "n8n",
+                    "details": {"workflow_id": request.workflow_id, "status": "error", "error": str(e)}
+                }).execute()
+            except Exception as log_err:
+                logger.warning(f"Failed to write audit log: {log_err}")
+        raise HTTPException(status_code=503, detail=f"Could not connect to N8N service: {e}")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while executing N8N workflow {request.workflow_id}: {e}")
+        if supabase:
+            try:
+                supabase.table("audit_logs").insert({
+                    "tenant_id": user.get("tenant_id", "default"),
+                    "user_id": user.get("user_id"),
+                    "action": "n8n_workflow_execute",
+                    "resource_type": "n8n",
+                    "details": {"workflow_id": request.workflow_id, "status": "error", "error": str(e)}
+                }).execute()
+            except Exception as log_err:
+                logger.warning(f"Failed to write audit log: {log_err}")
+        raise HTTPException(status_code=500, detail="An unexpected error occurred.")
 
 # Enhanced RAG with LLM integration
 @app.post("/api/rag/enhanced-query")
@@ -409,58 +515,201 @@ Answer:"""
         logger.error(f"Enhanced RAG query error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+# -------------------------------------------------------------------
+# Specification Validation Endpoint
+# -------------------------------------------------------------------
+@app.post("/api/validate/spec")
+async def validate_spec(
+    spec: Dict[str, Any],
+    user: dict = Depends(get_current_user)
+):
+    """Validate a specification JSON via LLM service and log the result."""
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"{SERVICES['llm_inference']}/validate-spec",
+                json={"spec": spec},
+                timeout=60.0,
+            )
+            resp.raise_for_status()
+            validation_result = resp.json()
+    except Exception as e:
+        logger.error(f"Spec validation service error: {e}")
+        raise HTTPException(status_code=502, detail="Validation service unavailable")
+
+    # Log into Supabase
+    if supabase:
+        try:
+            supabase.table("spec_validation_logs").insert({
+                "tenant_id": user.get("tenant_id", "default"),
+                "user_id": user.get("user_id"),
+                "status": validation_result.get("status", "unknown"),
+                "details": validation_result,
+            }).execute()
+        except Exception as db_err:
+            logger.warning(f"Failed to log spec validation result: {db_err}")
+
+    return validation_result
+
+# -------------------------------------------------------------------
+# -------------------------------------------------------------------
+# GitOps PR Creation Endpoint
+# -------------------------------------------------------------------
+import base64
+
+@app.post("/api/git/pr")
+async def create_git_pr(
+    repo: str,
+    branch: str,
+    files: Dict[str, str],
+    pr_title: str,
+    pr_body: str = "",
+    user: dict = Depends(get_current_user)
+):
+    """Create a GitHub PR with generated artifacts."""
+    GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+    if not GITHUB_TOKEN:
+        logger.error("GITHUB_TOKEN not set.")
+        raise HTTPException(status_code=500, detail="GitHub integration not configured.")
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json"
+    }
+    owner, repo_name = repo.split("/")
+    base_branch = "main"
+    try:
+        async with httpx.AsyncClient() as client:
+            # 1. Create branch from main
+            ref_url = f"https://api.github.com/repos/{owner}/{repo_name}/git/refs/heads/{base_branch}"
+            ref_resp = await client.get(ref_url, headers=headers)
+            ref_resp.raise_for_status()
+            sha = ref_resp.json()["object"]["sha"]
+            new_ref_url = f"https://api.github.com/repos/{owner}/{repo_name}/git/refs"
+            await client.post(new_ref_url, headers=headers, json={
+                "ref": f"refs/heads/{branch}",
+                "sha": sha
+            })
+            # 2. Create/update files
+            for path, content in files.items():
+                file_url = f"https://api.github.com/repos/{owner}/{repo_name}/contents/{path}"
+                # Check if file exists for update
+                get_file_resp = await client.get(file_url+f"?ref={branch}", headers=headers)
+                exists = get_file_resp.status_code == 200
+                data = {
+                    "message": f"Add/update {path}",
+                    "content": base64.b64encode(content.encode()).decode(),
+                    "branch": branch
+                }
+                if exists:
+                    data["sha"] = get_file_resp.json()["sha"]
+                await client.put(file_url, headers=headers, json=data)
+            # 3. Create PR
+            pr_url = f"https://api.github.com/repos/{owner}/{repo_name}/pulls"
+            pr_resp = await client.post(pr_url, headers=headers, json={
+                "title": pr_title,
+                "body": pr_body,
+                "head": branch,
+                "base": base_branch
+            })
+            pr_resp.raise_for_status()
+            pr_data = pr_resp.json()
+    except Exception as e:
+        logger.error(f"GitHub PR creation error: {e}")
+        # Audit log failure
+        if supabase:
+            try:
+                supabase.table("audit_logs").insert({
+                    "tenant_id": user.get("tenant_id", "default"),
+                    "user_id": user.get("user_id"),
+                    "action": "git_pr_create",
+                    "resource_type": "github",
+                    "details": {"error": str(e)}
+                }).execute()
+            except Exception as log_err:
+                logger.warning(f"Failed to write audit log: {log_err}")
+        raise HTTPException(status_code=500, detail=f"GitHub PR error: {e}")
+    # Audit log success
+    if supabase:
+        try:
+            supabase.table("audit_logs").insert({
+                "tenant_id": user.get("tenant_id", "default"),
+                "user_id": user.get("user_id"),
+                "action": "git_pr_create",
+                "resource_type": "github",
+                "details": {"pr_url": pr_data.get("html_url")}
+            }).execute()
+        except Exception as log_err:
+            logger.warning(f"Failed to write audit log: {log_err}")
+
 # Monitoring and observability endpoints
 @app.get("/api/monitoring/metrics")
 async def get_metrics(user: dict = Depends(get_current_user)):
-    """Get system metrics for monitoring dashboard"""
+    """Return live observability metrics from Prometheus for the current tenant."""
+    prometheus_url = os.getenv("PROMETHEUS_URL", SERVICES.get("monitoring", "http://localhost:9090"))
+    queries = {
+        "active_sessions": 'sum(active_sessions{tenant_id="' + user.get("tenant_id", "default") + '"})',
+        "total_requests": 'sum(http_requests_total{tenant_id="' + user.get("tenant_id", "default") + '"})',
+        "error_rate": 'sum(rate(http_requests_errors_total{tenant_id="' + user.get("tenant_id", "default") + '"}[5m]))',
+        "avg_latency_ms": 'avg(http_request_duration_ms{tenant_id="' + user.get("tenant_id", "default") + '"})',
+    }
+    results = {}
     try:
-        # Mock metrics - in production, integrate with Prometheus/Grafana
-        metrics = {
-            "llm_costs": {
-                "today": 45.67,
-                "this_month": 1234.56,
-                "breakdown": {
-                    "llama3": 567.89,
-                    "gemini": 234.56,
-                    "embeddings": 432.11
-                }
-            },
-            "rag_performance": {
-                "hit_rate": 0.87,
-                "avg_latency_ms": 245,
-                "queries_today": 1456,
-                "embedding_drift_score": 0.12
-            },
-            "infrastructure": {
-                "cpu_usage": 0.68,
-                "memory_usage": 0.75,
-                "gpu_utilization": 0.82,
-                "active_pods": 12
-            },
-            "business_kpis": {
-                "user_satisfaction": 4.2,
-                "automation_savings": 15000,
-                "compliance_score": 98
-            }
-        }
-        
-        return {"status": "success", "metrics": metrics, "timestamp": datetime.utcnow()}
-        
+        async with httpx.AsyncClient() as client:
+            for key, prom_query in queries.items():
+                resp = await client.get(f"{prometheus_url}/api/v1/query", params={"query": prom_query}, timeout=10.0)
+                resp.raise_for_status()
+                data = resp.json()
+                value = None
+                if data.get("status") == "success" and data.get("data", {}).get("result"):
+                    value = float(data["data"]["result"][0]["value"][1])
+                results[key] = value
+        # Add compliance flags and last scan from Supabase if available
+        compliance_flags = []
+        last_scan = None
+        if supabase:
+            try:
+                compliance_resp = supabase.table("compliance_results").select("flag,scanned_at").eq("tenant_id", user.get("tenant_id", "default")).order("scanned_at", desc=True).limit(1).execute()
+                if compliance_resp.data and len(compliance_resp.data) > 0:
+                    compliance_flags = [compliance_resp.data[0]["flag"]]
+                    last_scan = compliance_resp.data[0]["scanned_at"]
+            except Exception as supa_err:
+                logger.warning(f"Could not fetch compliance info: {supa_err}")
+        results["compliance_flags"] = compliance_flags
+        results["last_scan"] = last_scan
+        return {"status": "success", "metrics": results}
     except Exception as e:
-        logger.error(f"Metrics retrieval error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Metrics endpoint error (Prometheus): {str(e)}. Returning mock data.")
+        # Fallback to mock metrics
+        metrics = {
+            "active_sessions": 5,
+            "total_requests": 1234,
+            "error_rate": 0.012,
+            "avg_latency_ms": 210,
+            "compliance_flags": ["hipaa", "soc2"],
+            "last_scan": "2024-06-01T12:34:56Z"
+        }
+        return {"status": "success", "metrics": metrics, "note": "Prometheus unavailable, mock data returned."}
 
 # Artifact generation
+# Attempt to use Jinja2 for templating; fall back to Python's built-in string.Template if unavailable.
+try:
+    from jinja2 import Template  # type: ignore
+except ModuleNotFoundError:
+    from string import Template as _Template  # type: ignore
+    class Template(_Template):
+        """Fallback Template with a compatible render() helper."""
+        def render(self, **kwargs):  # type: ignore
+            return self.safe_substitute(**kwargs)
+
 @app.post("/api/artifacts/generate")
 async def generate_artifacts(
     spec: Dict[str, Any],
     user: dict = Depends(get_current_user)
 ):
-    """Generate deployment artifacts based on specification"""
+    """Generate deployment artifacts (K8s, Terraform, CI/CD, Compliance) based on specification"""
     try:
         artifacts = []
-        
-        # Generate Kubernetes manifests
+        # Kubernetes manifest (as before)
         if spec.get("deployment", {}).get("platform") == "kubernetes":
             k8s_manifest = {
                 "apiVersion": "apps/v1",
@@ -484,8 +733,67 @@ async def generate_artifacts(
                 }
             }
             artifacts.append({"name": "k8s-deployment.yaml", "content": k8s_manifest})
-        
-        # Generate n8n workflows
+        # Terraform main.tf (Jinja2 template)
+        tf_template = Template('''
+resource "aws_s3_bucket" "ai_artifacts" {
+  bucket = "{{ domain }}-ai-artifacts"
+  acl    = "private"
+}
+''')
+        tf_content = tf_template.render(domain=spec.get("domain", "project"))
+        artifacts.append({"name": "main.tf", "content": tf_content})
+        # CI/CD workflow (GitHub Actions YAML via Jinja2)
+        ci_template = Template('''
+name: CI Pipeline
+on:
+  push:
+    branches: [ main ]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run tests
+        run: pytest
+      - name: Run tfsec
+        uses: aquasecurity/tfsec@v1.28.1
+        with:
+          working-directory: ./
+      - name: Run Checkov
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: ./
+''')
+        ci_content = ci_template.render()
+        artifacts.append({"name": ".github/workflows/ci.yml", "content": ci_content})
+        # Compliance scan workflow (GitHub Actions YAML)
+        compliance_template = Template('''
+name: Compliance Scan
+on:
+  workflow_dispatch:
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run tfsec
+        uses: aquasecurity/tfsec@v1.28.1
+        with:
+          working-directory: ./
+      - name: Run Checkov
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: ./
+''')
+        compliance_content = compliance_template.render()
+        artifacts.append({"name": ".github/workflows/compliance.yml", "content": compliance_content})
+        # n8n workflow (as before)
         workflow_template = {
             "name": f"{spec['domain']}_workflow",
             "nodes": [
@@ -496,10 +804,59 @@ async def generate_artifacts(
             ]
         }
         artifacts.append({"name": "workflow.json", "content": workflow_template})
-        
         return {"status": "success", "artifacts": artifacts}
-        
     except Exception as e:
+        logger.error(f"Artifact generation error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ------------------------------------------------------------------
+# Compliance Results Endpoints
+# ------------------------------------------------------------------
+class ComplianceResult(BaseModel):
+    flag: str
+    details: Dict[str, Any] = {}
+
+@app.get("/api/compliance/results")
+async def get_compliance_results(user: dict = Depends(get_current_user)):
+    """Fetch compliance scan results for the tenant."""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Supabase not configured.")
+    try:
+        resp = supabase.table("compliance_results").select("*").eq("tenant_id", user.get("tenant_id", "default")).execute()
+        return {"status": "success", "results": resp.data}
+    except Exception as e:
+        logger.error(f"Error fetching compliance results: {e}")
+        raise HTTPException(status_code=500, detail="Could not fetch compliance results.")
+
+@app.post("/api/compliance/results", status_code=201)
+async def insert_compliance_result(result: ComplianceResult, user: dict = Depends(get_current_user)):
+    """Insert a compliance scan result (e.g., from CI)."""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Supabase not configured.")
+    try:
+        supabase.table("compliance_results").insert({
+            "tenant_id": user.get("tenant_id", "default"),
+            "user_id": user.get("user_id"),
+            "flag": result.flag,
+            "details": result.details
+        }).execute()
+        # Audit log
+        try:
+            supabase.table("audit_logs").insert({
+                "tenant_id": user.get("tenant_id", "default"),
+                "user_id": user.get("user_id"),
+                "action": "compliance_result_insert",
+                "resource_type": "compliance",
+                "details": {"flag": result.flag}
+            }).execute()
+        except Exception as log_err:
+            logger.warning(f"Audit log write failed: {log_err}")
+        return {"status": "success"}
+    except Exception as e:
+        logger.error(f"Error inserting compliance result: {e}")
+        raise HTTPException(status_code=500, detail="Could not insert compliance result.")
+
+
         logger.error(f"Artifact generation error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
