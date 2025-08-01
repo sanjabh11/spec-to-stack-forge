@@ -1,349 +1,271 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Upload, 
-  Play, 
-  Download, 
-  Settings, 
-  CheckCircle, 
-  AlertCircle,
-  FileText,
-  Users,
-  DollarSign,
-  Shield,
-  Briefcase,
-  Heart,
-  TrendingUp,
-  Cog,
-  MessageSquare,
-  Database
-} from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Plus, Download, Upload, Settings, Play, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface WorkflowTemplate {
   id: string;
   name: string;
   description: string;
   domain: string;
-  status: 'ready' | 'configured' | 'testing' | 'active';
-  endpoints: string[];
-  features: string[];
-  icon: React.ReactNode;
-  color: string;
+  template_data: any;
+  category: string;
+  is_active: boolean;
+  created_at: string;
 }
 
 export const WorkflowTemplateManager: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('legal');
-
-  const workflowTemplates: WorkflowTemplate[] = [
-    {
-      id: 'legal-document-ingestion',
-      name: 'Legal Document Ingestion',
-      description: 'Automatically process legal documents, contracts, and case files with privilege protection',
-      domain: 'legal',
-      status: 'ready',
-      endpoints: ['/legal-document-ingest'],
-      features: ['Document Processing', 'Privilege Protection', 'Case Law Analysis', 'Contract Review'],
-      icon: <Briefcase className="w-5 h-5" />,
-      color: 'bg-blue-500'
-    },
-    {
-      id: 'hr-policy-qa',
-      name: 'HR Policy Q&A Workflow',
-      description: 'Real-time employee policy questions with Slack integration for urgent issues',
-      domain: 'hr',
-      status: 'ready',
-      endpoints: ['/hr-qa'],
-      features: ['Policy Q&A', 'Slack Integration', 'Urgency Detection', 'Employee Support'],
-      icon: <Users className="w-5 h-5" />,
-      color: 'bg-green-500'
-    },
-    {
-      id: 'finance-report-automation',
-      name: 'Finance Report Automation',
-      description: 'Automated financial document processing with risk assessment and compliance checking',
-      domain: 'finance',
-      status: 'ready',
-      endpoints: ['/finance-report-automation'],
-      features: ['Risk Assessment', 'Compliance Checking', 'SOX/GAAP Support', 'Email Alerts'],
-      icon: <DollarSign className="w-5 h-5" />,
-      color: 'bg-yellow-500'
-    },
-    {
-      id: 'customer-support-kb',
-      name: 'Customer Support Knowledge Base',
-      description: 'Smart customer support with ticket analysis and automated responses',
-      domain: 'customer_support',
-      status: 'configured',
-      endpoints: ['/customer-support-kb'],
-      features: ['Ticket Analysis', 'Auto-Response', 'Escalation Logic', 'Knowledge Mining'],
-      icon: <MessageSquare className="w-5 h-5" />,
-      color: 'bg-purple-500'
-    },
-    {
-      id: 'rd-patent-analysis',
-      name: 'R&D Patent Analysis',
-      description: 'Intellectual property analysis and prior art research for R&D teams',
-      domain: 'r_and_d',
-      status: 'configured',
-      endpoints: ['/rd-patent-analysis'],
-      features: ['Patent Search', 'Prior Art Analysis', 'IP Protection', 'Innovation Tracking'],
-      icon: <Database className="w-5 h-5" />,
-      color: 'bg-indigo-500'
-    },
-    {
-      id: 'compliance-monitoring',
-      name: 'Compliance Monitoring',
-      description: 'Continuous regulatory compliance monitoring and audit preparation',
-      domain: 'compliance',
-      status: 'testing',
-      endpoints: ['/compliance-monitoring'],
-      features: ['Regulatory Tracking', 'Audit Preparation', 'Risk Monitoring', 'Policy Updates'],
-      icon: <Shield className="w-5 h-5" />,
-      color: 'bg-red-500'
-    },
-    {
-      id: 'marketing-insights',
-      name: 'Marketing Intelligence',
-      description: 'Market research analysis and competitive intelligence gathering',
-      domain: 'marketing',
-      status: 'testing',
-      endpoints: ['/marketing-insights'],
-      features: ['Market Analysis', 'Competitor Tracking', 'Trend Analysis', 'Content Insights'],
-      icon: <TrendingUp className="w-5 h-5" />,
-      color: 'bg-pink-500'
-    },
-    {
-      id: 'operations-maintenance',
-      name: 'Operations & Maintenance',
-      description: 'Equipment maintenance tracking and SOP management with safety protocols',
-      domain: 'operations',
-      status: 'active',
-      endpoints: ['/operations-maintenance'],
-      features: ['SOP Management', 'Equipment Tracking', 'Safety Protocols', 'Maintenance Logs'],
-      icon: <Cog className="w-5 h-5" />,
-      color: 'bg-orange-500'
-    },
-    {
-      id: 'sales-crm-automation',
-      name: 'Sales CRM Automation',
-      description: 'Automated lead scoring, proposal generation, and client communication',
-      domain: 'sales',
-      status: 'active',
-      endpoints: ['/sales-crm-automation'],
-      features: ['Lead Scoring', 'Proposal Generation', 'Client History', 'Revenue Forecasting'],
-      icon: <FileText className="w-5 h-5" />,
-      color: 'bg-teal-500'
-    },
-    {
-      id: 'healthcare-clinical',
-      name: 'Healthcare Clinical Assistant',
-      description: 'HIPAA-compliant clinical documentation and medical literature analysis',
-      domain: 'healthcare',
-      status: 'configured',
-      endpoints: ['/healthcare-clinical'],
-      features: ['HIPAA Compliance', 'Clinical Notes', 'Literature Analysis', 'Patient Safety'],
-      icon: <Heart className="w-5 h-5" />,
-      color: 'bg-rose-500'
-    }
-  ];
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'ready': return <AlertCircle className="w-4 h-4 text-yellow-500" />;
-      case 'configured': return <Settings className="w-4 h-4 text-blue-500" />;
-      case 'testing': return <Play className="w-4 h-4 text-orange-500" />;
-      case 'active': return <CheckCircle className="w-4 h-4 text-green-500" />;
-      default: return <AlertCircle className="w-4 h-4 text-gray-500" />;
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, string> = {
-      ready: 'bg-yellow-100 text-yellow-800',
-      configured: 'bg-blue-100 text-blue-800',
-      testing: 'bg-orange-100 text-orange-800',
-      active: 'bg-green-100 text-green-800'
-    };
-    return variants[status] || 'bg-gray-100 text-gray-800';
-  };
-
-  const installWorkflow = async (template: WorkflowTemplate) => {
-    toast.info(`Installing ${template.name}...`);
-    
-    try {
-      // Simulate API call to install workflow in N8N
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      toast.success(`${template.name} installed successfully!`);
-    } catch (error) {
-      toast.error(`Failed to install ${template.name}`);
-    }
-  };
-
-  const testWorkflow = async (template: WorkflowTemplate) => {
-    toast.info(`Testing ${template.name}...`);
-    
-    try {
-      // Simulate workflow test
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      toast.success(`${template.name} test completed successfully!`);
-    } catch (error) {
-      toast.error(`${template.name} test failed`);
-    }
-  };
+  const [templates, setTemplates] = useState<WorkflowTemplate[]>([]);
+  const [selectedDomain, setSelectedDomain] = useState<string>('all');
+  const [loading, setLoading] = useState(false);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [newTemplate, setNewTemplate] = useState({
+    name: '',
+    description: '',
+    domain: 'healthcare',
+    category: 'automation',
+    template_data: {}
+  });
 
   const domains = [
-    { id: 'legal', label: 'Legal', icon: <Briefcase className="w-4 h-4" /> },
-    { id: 'hr', label: 'HR', icon: <Users className="w-4 h-4" /> },
-    { id: 'finance', label: 'Finance', icon: <DollarSign className="w-4 h-4" /> },
-    { id: 'customer_support', label: 'Support', icon: <MessageSquare className="w-4 h-4" /> },
-    { id: 'r_and_d', label: 'R&D', icon: <Database className="w-4 h-4" /> },
-    { id: 'compliance', label: 'Compliance', icon: <Shield className="w-4 h-4" /> },
-    { id: 'marketing', label: 'Marketing', icon: <TrendingUp className="w-4 h-4" /> },
-    { id: 'operations', label: 'Operations', icon: <Cog className="w-4 h-4" /> },
-    { id: 'sales', label: 'Sales', icon: <FileText className="w-4 h-4" /> },
-    { id: 'healthcare', label: 'Healthcare', icon: <Heart className="w-4 h-4" /> }
+    'healthcare', 'finance', 'legal', 'hr', 'marketing', 
+    'sales', 'operations', 'rd', 'compliance', 'customer_support'
   ];
 
-  const filteredTemplates = workflowTemplates.filter(template => template.domain === activeTab);
+  useEffect(() => {
+    loadTemplates();
+  }, [selectedDomain]);
+
+  const loadTemplates = async () => {
+    setLoading(true);
+    try {
+      let query = supabase
+        .from('workflow_templates')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (selectedDomain !== 'all') {
+        query = query.eq('domain', selectedDomain);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      setTemplates(data || []);
+    } catch (error: any) {
+      toast.error('Failed to load workflow templates');
+      console.error('Error loading templates:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createTemplate = async () => {
+    try {
+      setLoading(true);
+      
+      const { data, error } = await supabase.functions.invoke('create-workflow', {
+        body: {
+          name: newTemplate.name,
+          description: newTemplate.description,
+          domain: newTemplate.domain,
+          category: newTemplate.category,
+          template_data: {
+            nodes: [],
+            connections: [],
+            settings: {
+              executionOrder: 'v1',
+              saveManualExecutions: true,
+              callerPolicy: 'workflowsFromSameOwner'
+            }
+          }
+        }
+      });
+
+      if (error) throw error;
+
+      toast.success('Workflow template created successfully');
+      setShowCreateDialog(false);
+      setNewTemplate({
+        name: '',
+        description: '',
+        domain: 'healthcare',
+        category: 'automation',
+        template_data: {}
+      });
+      loadTemplates();
+    } catch (error: any) {
+      toast.error('Failed to create workflow template');
+      console.error('Error creating template:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deployTemplate = async (template: WorkflowTemplate) => {
+    try {
+      toast.success(`Deploying ${template.name} to N8N...`);
+      // In a real implementation, this would deploy to N8N
+      console.log('Deploying template:', template);
+    } catch (error) {
+      toast.error('Failed to deploy workflow');
+    }
+  };
+
+  const deleteTemplate = async (templateId: string) => {
+    try {
+      const { error } = await supabase
+        .from('workflow_templates')
+        .update({ is_active: false })
+        .eq('id', templateId);
+
+      if (error) throw error;
+
+      toast.success('Template deleted successfully');
+      loadTemplates();
+    } catch (error) {
+      toast.error('Failed to delete template');
+    }
+  };
 
   return (
     <div className="space-y-6">
-      <div className="text-center space-y-2">
-        <h2 className="text-3xl font-bold">N8N Workflow Templates</h2>
-        <p className="text-muted-foreground">
-          Ready-to-deploy automation workflows for enterprise use cases
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold">N8N Workflow Templates</h2>
+          <p className="text-muted-foreground">
+            Manage and deploy enterprise automation workflows
+          </p>
+        </div>
+        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="w-4 h-4 mr-2" />
+              Create Template
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create New Workflow Template</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <Input
+                placeholder="Template Name"
+                value={newTemplate.name}
+                onChange={(e) => setNewTemplate(prev => ({ ...prev, name: e.target.value }))}
+              />
+              <Textarea
+                placeholder="Description"
+                value={newTemplate.description}
+                onChange={(e) => setNewTemplate(prev => ({ ...prev, description: e.target.value }))}
+              />
+              <Select 
+                value={newTemplate.domain} 
+                onValueChange={(value) => setNewTemplate(prev => ({ ...prev, domain: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {domains.map(domain => (
+                    <SelectItem key={domain} value={domain}>
+                      {domain.charAt(0).toUpperCase() + domain.slice(1)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button onClick={createTemplate} disabled={loading}>
+                Create Template
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-5 lg:grid-cols-10">
-          {domains.map(domain => (
-            <TabsTrigger key={domain.id} value={domain.id} className="flex items-center space-x-1">
-              {domain.icon}
-              <span className="hidden sm:inline">{domain.label}</span>
-            </TabsTrigger>
+      <div className="flex items-center space-x-4">
+        <Select value={selectedDomain} onValueChange={setSelectedDomain}>
+          <SelectTrigger className="w-48">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Domains</SelectItem>
+            {domains.map(domain => (
+              <SelectItem key={domain} value={domain}>
+                {domain.charAt(0).toUpperCase() + domain.slice(1)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {templates.map(template => (
+            <Card key={template.id}>
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <CardTitle className="text-lg">{template.name}</CardTitle>
+                    <CardDescription>{template.description}</CardDescription>
+                  </div>
+                  <Badge variant="outline">
+                    {template.domain}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <div className="flex space-x-2">
+                    <Button
+                      size="sm"
+                      onClick={() => deployTemplate(template)}
+                      className="flex items-center space-x-1"
+                    >
+                      <Play className="w-3 h-3" />
+                      <span>Deploy</span>
+                    </Button>
+                    <Button size="sm" variant="outline">
+                      <Settings className="w-3 h-3" />
+                    </Button>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => deleteTemplate(template.id)}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </div>
+                <div className="mt-4 text-xs text-muted-foreground">
+                  Created: {new Date(template.created_at).toLocaleDateString()}
+                </div>
+              </CardContent>
+            </Card>
           ))}
-        </TabsList>
+        </div>
+      )}
 
-        {domains.map(domain => (
-          <TabsContent key={domain.id} value={domain.id} className="mt-6">
-            <div className="grid grid-cols-1 gap-6">
-              {filteredTemplates.map(template => (
-                <Card key={template.id} className="hover:shadow-lg transition-shadow">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className={`p-2 rounded-lg ${template.color} text-white`}>
-                          {template.icon}
-                        </div>
-                        <div>
-                          <CardTitle className="text-xl">{template.name}</CardTitle>
-                          <CardDescription className="mt-1">
-                            {template.description}
-                          </CardDescription>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        {getStatusIcon(template.status)}
-                        <Badge className={getStatusBadge(template.status)}>
-                          {template.status.charAt(0).toUpperCase() + template.status.slice(1)}
-                        </Badge>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  
-                  <CardContent className="space-y-4">
-                    <div>
-                      <h4 className="font-semibold mb-2">Endpoints:</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {template.endpoints.map(endpoint => (
-                          <Badge key={endpoint} variant="outline" className="font-mono">
-                            {endpoint}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <h4 className="font-semibold mb-2">Features:</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {template.features.map(feature => (
-                          <Badge key={feature} variant="secondary">
-                            {feature}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    <div className="flex space-x-3 pt-4">
-                      <Button 
-                        variant="outline" 
-                        onClick={() => installWorkflow(template)}
-                        className="flex-1"
-                      >
-                        <Upload className="w-4 h-4 mr-2" />
-                        Install
-                      </Button>
-                      <Button 
-                        variant="outline"
-                        onClick={() => testWorkflow(template)}
-                        className="flex-1"
-                      >
-                        <Play className="w-4 h-4 mr-2" />
-                        Test
-                      </Button>
-                      <Button variant="outline">
-                        <Download className="w-4 h-4 mr-2" />
-                        Export
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
-        ))}
-      </Tabs>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Setup Instructions</CardTitle>
-          <CardDescription>
-            Follow these steps to deploy workflows to your N8N instance
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <h4 className="font-semibold">1. Import Workflow Templates</h4>
-            <p className="text-sm text-muted-foreground">
-              Copy the JSON from <code>/workflow-templates/</code> and import into N8N
-            </p>
-          </div>
-          <div className="space-y-2">
-            <h4 className="font-semibold">2. Configure Credentials</h4>
-            <p className="text-sm text-muted-foreground">
-              Set up Supabase, Gmail, and Slack credentials in N8N
-            </p>
-          </div>
-          <div className="space-y-2">
-            <h4 className="font-semibold">3. Test Workflows</h4>
-            <p className="text-sm text-muted-foreground">
-              Use the test buttons above to validate each workflow
-            </p>
-          </div>
-          <div className="space-y-2">
-            <h4 className="font-semibold">4. Activate & Monitor</h4>
-            <p className="text-sm text-muted-foreground">
-              Enable workflows and monitor through the N8N dashboard
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      {templates.length === 0 && !loading && (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">
+            No workflow templates found for the selected domain.
+          </p>
+        </div>
+      )}
     </div>
   );
 };

@@ -19,52 +19,38 @@ export class APIClient {
         }
       }
 
-      // Get questions for the domain using raw query since types may not be updated
-      const { data: questions, error: questionsError } = await supabase
-        .rpc('get_question_templates', { domain_param: domain });
+      // Get questions for the domain using edge function
+      const { data: questions, error: questionsError } = await supabase.functions.invoke('get-question-templates', {
+        body: { domain_param: domain }
+      });
 
       if (questionsError) {
-        // Fallback to direct query if RPC doesn't exist
-        const { data: fallbackQuestions, error: fallbackError } = await supabase
-          .from('question_templates' as any)
-          .select('*')
-          .eq('domain', domain)
-          .order('question_order');
-        
-        if (fallbackError) {
-          console.error('Error fetching questions:', fallbackError);
-          // Return mock questions for now
-          return {
-            sessionId: 'mock-session-' + Date.now(),
-            questions: [
-              {
-                id: 'q1',
-                domain,
-                question_order: 1,
-                question_text: `What is your primary objective for this ${domain} AI platform?`,
-                question_type: 'textarea',
-                required: true,
-                category: 'Domain Specification',
-                options: []
-              },
-              {
-                id: 'q2',
-                domain,
-                question_order: 2,
-                question_text: 'What is your expected user load?',
-                question_type: 'select',
-                required: true,
-                category: 'Performance Requirements',
-                options: ['< 100 users', '100 - 1000 users', '1000 - 10000 users', '> 10000 users']
-              }
-            ],
-            domain
-          };
-        }
-        
+        console.error('Error fetching questions:', questionsError);
+        // Return mock questions for now
         return {
-          sessionId: 'fallback-session-' + Date.now(),
-          questions: fallbackQuestions || [],
+          sessionId: 'mock-session-' + Date.now(),
+          questions: [
+            {
+              id: 'q1',
+              domain,
+              question_order: 1,
+              question_text: `What is your primary objective for this ${domain} AI platform?`,
+              question_type: 'textarea',
+              required: true,
+              category: 'Domain Specification',
+              options: []
+            },
+            {
+              id: 'q2',
+              domain,
+              question_order: 2,
+              question_text: 'What is your expected user load?',
+              question_type: 'select',
+              required: true,
+              category: 'Performance Requirements',
+              options: ['< 100 users', '100 - 1000 users', '1000 - 10000 users', '> 10000 users']
+            }
+          ],
           domain
         };
       }
@@ -306,7 +292,6 @@ export class APIClient {
     if (error) throw new Error(`Failed to get projects: ${error.message}`);
     return data;
   }
-
 }
 
 export const apiClient = new APIClient();

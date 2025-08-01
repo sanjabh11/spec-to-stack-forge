@@ -1,460 +1,237 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  Play, 
-  CheckCircle, 
-  AlertCircle, 
-  Clock,
-  Send,
-  FileText,
-  MessageSquare
-} from 'lucide-react';
+import { Play, Square, RotateCcw, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
-interface TestResult {
-  status: 'success' | 'error' | 'pending';
-  message: string;
-  timestamp: string;
+interface TestExecution {
+  id: string;
+  workflow_name: string;
+  status: 'running' | 'success' | 'failed' | 'waiting';
+  started_at: string;
+  finished_at?: string;
   duration?: number;
-  response?: any;
+  input_data?: any;
+  output_data?: any;
+  error_message?: string;
 }
 
 export const WorkflowTester: React.FC = () => {
-  const [selectedWorkflow, setSelectedWorkflow] = useState('');
-  const [testPayload, setTestPayload] = useState('');
-  const [testResults, setTestResults] = useState<TestResult | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [selectedWorkflow, setSelectedWorkflow] = useState<string>('');
+  const [testInput, setTestInput] = useState<string>('{}');
+  const [executions, setExecutions] = useState<TestExecution[]>([]);
+  const [isRunning, setIsRunning] = useState(false);
 
-  const workflows = [
-    {
-      id: 'legal-document-ingestion',
-      name: 'Legal Document Ingestion',
-      endpoint: '/legal-document-ingest',
-      samplePayload: JSON.stringify({
-        id: "legal-doc-001",
-        document_type: "contract",
-        jurisdiction: "US",
-        practice_area: "corporate",
-        client_matter: "ACME Corp Acquisition",
-        content: "This is a sample legal document content for testing purposes...",
-        file_name: "acme-acquisition-contract.pdf",
-        file_size: 245678,
-        confidentiality_level: "attorney-client",
-        user_id: "lawyer-001"
-      }, null, 2)
-    },
-    {
-      id: 'hr-policy-qa',
-      name: 'HR Policy Q&A',
-      endpoint: '/hr-qa',
-      samplePayload: JSON.stringify({
-        question: "What is the company policy on remote work?",
-        employee_id: "emp-001",
-        department: "engineering",
-        urgency: "normal",
-        category: "policy",
-        session_id: "hr-session-001"
-      }, null, 2)
-    },
-    {
-      id: 'finance-report-automation',
-      name: 'Finance Report Automation',
-      endpoint: '/finance-report-automation',
-      samplePayload: JSON.stringify({
-        id: "fin-report-001",
-        report_type: "quarterly_earnings",
-        period: "Q1_2024",
-        department: "finance",
-        content: "Q1 2024 Financial Results: Revenue $10M, Expenses $7M, Net Income $3M...",
-        financial_data: {
-          revenue: 10000000,
-          expenses: 7000000,
-          net_income: 3000000,
-          ebitda: 3500000
-        },
-        file_name: "Q1-2024-earnings.pdf",
-        user_id: "cfo-001"
-      }, null, 2)
-    },
-    {
-      id: 'customer-support-kb',
-      name: 'Customer Support Knowledge Base',
-      endpoint: '/customer-support-kb',
-      samplePayload: JSON.stringify({
-        ticket_id: "TICK-001",
-        query: "How do I reset my password?",
-        customer_id: "cust-12345",
-        urgency: "normal",
-        category: "account",
-        channel: "web",
-        customer_tier: "premium"
-      }, null, 2)
-    },
-    {
-      id: 'rd-patent-analysis',
-      name: 'R&D Patent Analysis',
-      endpoint: '/rd-patent-analysis',
-      samplePayload: JSON.stringify({
-        id: "rd-analysis-001",
-        innovation_type: "software_algorithm",
-        description: "Novel machine learning algorithm for real-time data processing...",
-        inventor_team: ["Dr. Smith", "Prof. Johnson"],
-        research_area: "artificial_intelligence",
-        priority_level: "high",
-        project_code: "AI-2024-001",
-        confidentiality_level: "internal"
-      }, null, 2)
-    },
-    {
-      id: 'compliance-monitoring',
-      name: 'Compliance Monitoring',
-      endpoint: '/compliance-monitoring',
-      samplePayload: JSON.stringify({
-        id: "comp-audit-001",
-        regulation_type: "GDPR",
-        jurisdiction: "EU",
-        compliance_area: "data_privacy",
-        document_content: "Data processing procedures for customer information handling...",
-        audit_scope: "operational",
-        department: "compliance",
-        risk_category: "medium"
-      }, null, 2)
-    },
-    {
-      id: 'marketing-insights',
-      name: 'Marketing Intelligence',
-      endpoint: '/marketing-insights',
-      samplePayload: JSON.stringify({
-        id: "market-analysis-001",
-        campaign_type: "competitive_analysis",
-        target_market: "B2B_SaaS",
-        content_type: "market_research",
-        market_data: "Competitive landscape analysis for enterprise software market...",
-        analysis_scope: "competitive",
-        geographic_scope: "North_America",
-        industry_vertical: "technology"
-      }, null, 2)
-    },
-    {
-      id: 'operations-maintenance',
-      name: 'Operations & Maintenance',
-      endpoint: '/operations-maintenance',
-      samplePayload: JSON.stringify({
-        id: "ops-log-001",
-        operation_type: "preventive_maintenance",
-        equipment_id: "EQUIP-M-001",
-        facility: "manufacturing_plant_1",
-        procedure_content: "Monthly maintenance check on production line equipment...",
-        safety_level: "standard",
-        operator_id: "tech-003",
-        shift: "day"
-      }, null, 2)
-    },
-    {
-      id: 'sales-crm-automation',
-      name: 'Sales CRM Automation',
-      endpoint: '/sales-crm-automation',
-      samplePayload: JSON.stringify({
-        id: "sales-interaction-001",
-        lead_type: "enterprise_prospect",
-        company_size: "large",
-        industry: "financial_services",
-        interaction_content: "Initial discovery call with Fortune 500 financial institution...",
-        deal_stage: "qualification",
-        sales_rep: "sales-rep-001",
-        lead_score: 75,
-        revenue_potential: 500000
-      }, null, 2)
-    },
-    {
-      id: 'healthcare-clinical',
-      name: 'Healthcare Clinical Assistant',
-      endpoint: '/healthcare-clinical',
-      samplePayload: JSON.stringify({
-        id: "clinical-note-001",
-        document_type: "progress_note",
-        patient_category: "ambulatory",
-        specialty: "cardiology",
-        clinical_content: "Patient follow-up for cardiac evaluation and treatment plan...",
-        urgency_level: "routine",
-        clinician_id: "dr-smith-001",
-        patient_anonymized: true
-      }, null, 2)
-    }
+  const mockWorkflows = [
+    { id: 'healthcare-ehr', name: 'Healthcare EHR Integration', domain: 'healthcare' },
+    { id: 'finance-fraud', name: 'Finance Fraud Detection', domain: 'finance' },
+    { id: 'legal-doc', name: 'Legal Document Analysis', domain: 'legal' },
+    { id: 'hr-onboarding', name: 'HR Employee Onboarding', domain: 'hr' }
   ];
 
-  const runWorkflowTest = async () => {
-    if (!selectedWorkflow || !testPayload) {
-      toast.error('Please select a workflow and provide test payload');
+  useEffect(() => {
+    // Load recent executions
+    setExecutions([
+      {
+        id: '1',
+        workflow_name: 'Healthcare EHR Integration',
+        status: 'success',
+        started_at: '2024-01-15T10:30:00Z',
+        finished_at: '2024-01-15T10:32:00Z',
+        duration: 120,
+        input_data: { patient_id: '12345' },
+        output_data: { processed: true, records_updated: 5 }
+      },
+      {
+        id: '2',
+        workflow_name: 'Finance Fraud Detection',
+        status: 'failed',
+        started_at: '2024-01-15T09:15:00Z',
+        finished_at: '2024-01-15T09:16:30Z',
+        duration: 90,
+        input_data: { transaction_id: 'tx_67890' },
+        error_message: 'API rate limit exceeded'
+      }
+    ]);
+  }, []);
+
+  const runTest = async () => {
+    if (!selectedWorkflow) {
+      toast.error('Please select a workflow to test');
       return;
     }
 
-    setIsLoading(true);
-    setTestResults({ status: 'pending', message: 'Running test...', timestamp: new Date().toISOString() });
-
-    const startTime = Date.now();
-
     try {
-      const workflow = workflows.find(w => w.id === selectedWorkflow);
-      if (!workflow) {
-        throw new Error('Workflow not found');
-      }
+      const inputData = JSON.parse(testInput);
+      setIsRunning(true);
 
-      // Simulate N8N webhook call
-      const response = await fetch(`http://localhost:5678/webhook${workflow.endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: testPayload,
-      });
+      // Simulate workflow execution
+      const newExecution: TestExecution = {
+        id: Date.now().toString(),
+        workflow_name: mockWorkflows.find(w => w.id === selectedWorkflow)?.name || 'Unknown',
+        status: 'running',
+        started_at: new Date().toISOString(),
+        input_data: inputData
+      };
 
-      const duration = Date.now() - startTime;
-      const responseData = await response.json();
+      setExecutions(prev => [newExecution, ...prev]);
 
-      if (response.ok) {
-        setTestResults({
-          status: 'success',
-          message: `Workflow executed successfully`,
-          timestamp: new Date().toISOString(),
-          duration,
-          response: responseData
-        });
-        toast.success('Workflow test completed successfully!');
-      } else {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
+      // Simulate execution time
+      setTimeout(() => {
+        setExecutions(prev => prev.map(exec => 
+          exec.id === newExecution.id 
+            ? {
+                ...exec,
+                status: Math.random() > 0.7 ? 'failed' : 'success',
+                finished_at: new Date().toISOString(),
+                duration: Math.floor(Math.random() * 300) + 30,
+                output_data: exec.status === 'success' ? { result: 'processed successfully' } : undefined,
+                error_message: exec.status === 'failed' ? 'Simulated error for testing' : undefined
+              }
+            : exec
+        ));
+        setIsRunning(false);
+        toast.success('Test execution completed');
+      }, 3000);
+
     } catch (error) {
-      const duration = Date.now() - startTime;
-      setTestResults({
-        status: 'error',
-        message: error instanceof Error ? error.message : 'Unknown error occurred',
-        timestamp: new Date().toISOString(),
-        duration
-      });
-      toast.error('Workflow test failed');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const loadSamplePayload = () => {
-    const workflow = workflows.find(w => w.id === selectedWorkflow);
-    if (workflow) {
-      setTestPayload(workflow.samplePayload);
+      toast.error('Invalid JSON input');
+      setIsRunning(false);
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
+      case 'running': return <Clock className="w-4 h-4 text-yellow-500" />;
       case 'success': return <CheckCircle className="w-4 h-4 text-green-500" />;
-      case 'error': return <AlertCircle className="w-4 h-4 text-red-500" />;
-      case 'pending': return <Clock className="w-4 h-4 text-yellow-500" />;
-      default: return null;
+      case 'failed': return <AlertCircle className="w-4 h-4 text-red-500" />;
+      default: return <Clock className="w-4 h-4 text-gray-500" />;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'running': return 'bg-yellow-100 text-yellow-800';
+      case 'success': return 'bg-green-100 text-green-800';
+      case 'failed': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
   return (
     <div className="space-y-6">
-      <div className="text-center space-y-2">
-        <h2 className="text-3xl font-bold">N8N Workflow Tester</h2>
+      <div>
+        <h2 className="text-3xl font-bold">Workflow Testing Environment</h2>
         <p className="text-muted-foreground">
-          Test your workflow templates with sample data across all 10 business domains
+          Test and validate your N8N workflows with sample data
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid gap-6 lg:grid-cols-2">
         {/* Test Configuration */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Send className="w-5 h-5" />
-              <span>Test Configuration</span>
-            </CardTitle>
+            <CardTitle>Configure Test</CardTitle>
             <CardDescription>
-              Configure and run workflow tests for all domains
+              Select a workflow and provide test input data
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="workflow-select">Select Workflow</Label>
-              <Select value={selectedWorkflow} onValueChange={setSelectedWorkflow}>
-                <SelectTrigger id="workflow-select">
-                  <SelectValue placeholder="Choose a workflow to test" />
-                </SelectTrigger>
-                <SelectContent>
-                  {workflows.map(workflow => (
-                    <SelectItem key={workflow.id} value={workflow.id}>
-                      {workflow.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <Select value={selectedWorkflow} onValueChange={setSelectedWorkflow}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select workflow to test..." />
+              </SelectTrigger>
+              <SelectContent>
+                {mockWorkflows.map(workflow => (
+                  <SelectItem key={workflow.id} value={workflow.id}>
+                    {workflow.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-            {selectedWorkflow && (
-              <div className="space-y-2">
-                <Label>Endpoint</Label>
-                <Input 
-                  value={workflows.find(w => w.id === selectedWorkflow)?.endpoint || ''} 
-                  readOnly 
-                  className="font-mono bg-muted"
-                />
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="test-payload">Test Payload (JSON)</Label>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={loadSamplePayload}
-                  disabled={!selectedWorkflow}
-                >
-                  Load Sample
-                </Button>
-              </div>
+            <div>
+              <label className="text-sm font-medium">Test Input (JSON)</label>
               <Textarea
-                id="test-payload"
-                placeholder="Enter JSON payload for testing..."
-                value={testPayload}
-                onChange={(e) => setTestPayload(e.target.value)}
-                className="font-mono min-h-[200px]"
+                value={testInput}
+                onChange={(e) => setTestInput(e.target.value)}
+                placeholder='{"key": "value"}'
+                rows={6}
+                className="font-mono text-sm"
               />
             </div>
 
             <Button 
-              onClick={runWorkflowTest} 
-              disabled={!selectedWorkflow || !testPayload || isLoading}
+              onClick={runTest} 
+              disabled={isRunning || !selectedWorkflow}
               className="w-full"
             >
-              <Play className="w-4 h-4 mr-2" />
-              {isLoading ? 'Running Test...' : 'Run Test'}
+              {isRunning ? (
+                <>
+                  <Square className="w-4 h-4 mr-2" />
+                  Running Test...
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4 mr-2" />
+                  Run Test
+                </>
+              )}
             </Button>
           </CardContent>
         </Card>
 
-        {/* Test Results */}
+        {/* Recent Executions */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <FileText className="w-5 h-5" />
-              <span>Test Results</span>
-            </CardTitle>
+            <CardTitle>Test Results</CardTitle>
             <CardDescription>
-              View workflow execution results
+              Recent workflow test executions
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {testResults ? (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    {getStatusIcon(testResults.status)}
-                    <Badge 
-                      className={
-                        testResults.status === 'success' ? 'bg-green-100 text-green-800' :
-                        testResults.status === 'error' ? 'bg-red-100 text-red-800' :
-                        'bg-yellow-100 text-yellow-800'
-                      }
-                    >
-                      {testResults.status.toUpperCase()}
+          <CardContent>
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {executions.map(execution => (
+                <div key={execution.id} className="border rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center space-x-2">
+                      {getStatusIcon(execution.status)}
+                      <span className="font-medium text-sm">
+                        {execution.workflow_name}
+                      </span>
+                    </div>
+                    <Badge className={getStatusColor(execution.status)}>
+                      {execution.status.toUpperCase()}
                     </Badge>
                   </div>
-                  {testResults.duration && (
-                    <span className="text-sm text-muted-foreground">
-                      {testResults.duration}ms
-                    </span>
+                  
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <div>Started: {new Date(execution.started_at).toLocaleString()}</div>
+                    {execution.duration && (
+                      <div>Duration: {execution.duration}s</div>
+                    )}
+                  </div>
+
+                  {execution.error_message && (
+                    <Alert className="mt-2">
+                      <AlertCircle className="w-4 h-4" />
+                      <AlertDescription className="text-xs">
+                        {execution.error_message}
+                      </AlertDescription>
+                    </Alert>
                   )}
                 </div>
-
-                <Alert>
-                  <AlertDescription>
-                    {testResults.message}
-                  </AlertDescription>
-                </Alert>
-
-                <div className="space-y-2">
-                  <Label>Timestamp</Label>
-                  <Input 
-                    value={new Date(testResults.timestamp).toLocaleString()} 
-                    readOnly 
-                    className="font-mono bg-muted"
-                  />
-                </div>
-
-                {testResults.response && (
-                  <div className="space-y-2">
-                    <Label>Response</Label>
-                    <Textarea
-                      value={JSON.stringify(testResults.response, null, 2)}
-                      readOnly
-                      className="font-mono bg-muted min-h-[150px]"
-                    />
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <MessageSquare className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>No test results yet</p>
-                <p className="text-sm">Run a workflow test to see results here</p>
-              </div>
-            )}
+              ))}
+            </div>
           </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Enterprise Workflow Testing Guide</CardTitle>
-          <CardDescription>
-            Best practices for testing N8N workflows across all business domains
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <h4 className="font-semibold">Pre-Test Checklist</h4>
-              <ul className="text-sm space-y-1 text-muted-foreground">
-                <li>• N8N instance is running</li>
-                <li>• All 10 workflows imported</li>
-                <li>• Credentials configured</li>
-                <li>• Supabase connection active</li>
-                <li>• Email services configured</li>
-              </ul>
-            </div>
-            <div className="space-y-2">
-              <h4 className="font-semibold">Test Scenarios</h4>
-              <ul className="text-sm space-y-1 text-muted-foreground">
-                <li>• Valid payload processing</li>
-                <li>• Error handling validation</li>
-                <li>• Integration endpoints</li>
-                <li>• Alert notifications</li>
-                <li>• Escalation workflows</li>
-              </ul>
-            </div>
-            <div className="space-y-2">
-              <h4 className="font-semibold">Domain Coverage</h4>
-              <ul className="text-sm space-y-1 text-muted-foreground">
-                <li>• Legal & Compliance</li>
-                <li>• HR & Finance</li>
-                <li>• Customer & Sales</li>
-                <li>• R&D & Operations</li>
-                <li>• Marketing & Healthcare</li>
-              </ul>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };

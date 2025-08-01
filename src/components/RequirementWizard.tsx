@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,20 +33,25 @@ export default function RequirementWizard({ domain, onComplete }: WizardProps) {
     try {
       const data = await apiClient.startRequirementSession(domain);
       setSessionId(data.sessionId);
-      // Transform database rows to Question interface
-      const transformedQuestions: Question[] = data.questions.map((q: any) => ({
-        id: q.id,
-        domain: q.domain,
-        subdomain: q.subdomain,
-        question_order: q.question_order,
-        question_text: q.question_text,
-        question_type: q.question_type,
-        options: q.options || [],
-        required: q.required,
-        category: q.category,
-        validation_rules: q.validation_rules
-      }));
-      setQuestions(transformedQuestions);
+      // Ensure questions is always an array
+      if (Array.isArray(data.questions)) {
+        const transformedQuestions: Question[] = data.questions.map((q: any) => ({
+          id: q.id,
+          domain: q.domain,
+          subdomain: q.subdomain,
+          question_order: q.question_order,
+          question_text: q.question_text,
+          question_type: q.question_type,
+          options: q.options || [],
+          required: q.required,
+          category: q.category,
+          validation_rules: q.validation_rules
+        }));
+        setQuestions(transformedQuestions);
+      } else {
+        console.error('Questions data is not an array:', data.questions);
+        setQuestions([]);
+      }
     } catch (error: any) {
       toast({
         title: "Failed to start session",
