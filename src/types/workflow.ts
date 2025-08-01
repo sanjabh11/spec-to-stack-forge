@@ -3,16 +3,15 @@ export interface WorkflowTemplate {
   id: string;
   name: string;
   description: string | null;
-  domain: string;
-  template_data: any;
   category: string;
+  template_content: string;
+  placeholders: any;
+  usage_count: number;
   is_active: boolean;
   created_at: string;
   updated_at: string;
   created_by: string | null;
-  preview_image: string | null;
-  usage_count: number;
-  is_featured: boolean;
+  jurisdiction: string | null;
 }
 
 export interface WorkflowTestResult {

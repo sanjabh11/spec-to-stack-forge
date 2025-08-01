@@ -14,61 +14,43 @@ import { WorkflowTemplate } from '@/types/workflow';
 
 export const WorkflowTemplateManager: React.FC = () => {
   const [templates, setTemplates] = useState<WorkflowTemplate[]>([]);
-  const [selectedDomain, setSelectedDomain] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [loading, setLoading] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newTemplate, setNewTemplate] = useState({
     name: '',
     description: '',
-    domain: 'healthcare',
     category: 'automation',
-    template_data: {}
+    template_content: '',
+    jurisdiction: 'US'
   });
 
-  const domains = [
-    'healthcare', 'finance', 'legal', 'hr', 'marketing', 
-    'sales', 'operations', 'rd', 'compliance', 'customer_support'
+  const categories = [
+    'automation', 'legal', 'healthcare', 'finance', 'hr', 
+    'marketing', 'sales', 'operations', 'compliance'
   ];
 
   useEffect(() => {
     loadTemplates();
-  }, [selectedDomain]);
+  }, [selectedCategory]);
 
   const loadTemplates = async () => {
     setLoading(true);
     try {
       let query = supabase
-        .from('workflow_templates')
-        .select('id, name, description, domain, template_data, category, is_active, created_at, updated_at, created_by, preview_image, usage_count, is_featured')
+        .from('document_templates')
+        .select('*')
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
-      if (selectedDomain !== 'all') {
-        query = query.eq('domain', selectedDomain);
+      if (selectedCategory !== 'all') {
+        query = query.eq('category', selectedCategory);
       }
 
       const { data, error } = await query;
 
       if (error) throw error;
-
-      // Transform the data to match our interface
-      const transformedData: WorkflowTemplate[] = (data || []).map(item => ({
-        id: item.id,
-        name: item.name,
-        description: item.description,
-        domain: item.domain,
-        template_data: item.template_data,
-        category: item.category,
-        is_active: item.is_active,
-        created_at: item.created_at,
-        updated_at: item.updated_at,
-        created_by: item.created_by,
-        preview_image: item.preview_image,
-        usage_count: item.usage_count,
-        is_featured: item.is_featured
-      }));
-
-      setTemplates(transformedData);
+      setTemplates(data || []);
     } catch (error: any) {
       toast.error('Failed to load workflow templates');
       console.error('Error loading templates:', error);
@@ -89,25 +71,17 @@ export const WorkflowTemplateManager: React.FC = () => {
       }
 
       const { data, error } = await supabase
-        .from('workflow_templates')
+        .from('document_templates')
         .insert({
           name: newTemplate.name,
           description: newTemplate.description,
-          domain: newTemplate.domain,
           category: newTemplate.category,
-          template_data: {
-            nodes: [],
-            connections: [],
-            settings: {
-              executionOrder: 'v1',
-              saveManualExecutions: true,
-              callerPolicy: 'workflowsFromSameOwner'
-            }
-          },
+          template_content: newTemplate.template_content || 'Default template content',
+          placeholders: [],
           created_by: user.id,
-          is_active: true,
+          jurisdiction: newTemplate.jurisdiction,
           usage_count: 0,
-          is_featured: false
+          is_active: true
         })
         .select()
         .single();
@@ -119,9 +93,9 @@ export const WorkflowTemplateManager: React.FC = () => {
       setNewTemplate({
         name: '',
         description: '',
-        domain: 'healthcare',
         category: 'automation',
-        template_data: {}
+        template_content: '',
+        jurisdiction: 'US'
       });
       loadTemplates();
     } catch (error: any) {
@@ -134,20 +108,17 @@ export const WorkflowTemplateManager: React.FC = () => {
 
   const deployTemplate = async (template: WorkflowTemplate) => {
     try {
-      toast.success(`Deploying ${template.name} to N8N...`);
+      toast.success(`Deploying ${template.name}...`);
       
-      // Simulate deployment process
+      // Update usage count
+      await supabase
+        .from('document_templates')
+        .update({ usage_count: template.usage_count + 1 })
+        .eq('id', template.id);
+      
       setTimeout(() => {
         toast.success(`${template.name} deployed successfully!`);
-        
-        // Update usage count
-        supabase
-          .from('workflow_templates')
-          .update({ usage_count: template.usage_count + 1 })
-          .eq('id', template.id)
-          .then(() => {
-            loadTemplates();
-          });
+        loadTemplates();
       }, 2000);
     } catch (error) {
       toast.error('Failed to deploy workflow');
@@ -157,7 +128,7 @@ export const WorkflowTemplateManager: React.FC = () => {
   const deleteTemplate = async (templateId: string) => {
     try {
       const { error } = await supabase
-        .from('workflow_templates')
+        .from('document_templates')
         .update({ is_active: false })
         .eq('id', templateId);
 
@@ -174,7 +145,7 @@ export const WorkflowTemplateManager: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold">N8N Workflow Templates</h2>
+          <h2 className="text-3xl font-bold">Workflow Templates</h2>
           <p className="text-muted-foreground">
             Manage and deploy enterprise automation workflows
           </p>
@@ -202,20 +173,25 @@ export const WorkflowTemplateManager: React.FC = () => {
                 onChange={(e) => setNewTemplate(prev => ({ ...prev, description: e.target.value }))}
               />
               <Select 
-                value={newTemplate.domain} 
-                onValueChange={(value) => setNewTemplate(prev => ({ ...prev, domain: value }))}
+                value={newTemplate.category} 
+                onValueChange={(value) => setNewTemplate(prev => ({ ...prev, category: value }))}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {domains.map(domain => (
-                    <SelectItem key={domain} value={domain}>
-                      {domain.charAt(0).toUpperCase() + domain.slice(1)}
+                  {categories.map(category => (
+                    <SelectItem key={category} value={category}>
+                      {category.charAt(0).toUpperCase() + category.slice(1)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              <Textarea
+                placeholder="Template Content"
+                value={newTemplate.template_content}
+                onChange={(e) => setNewTemplate(prev => ({ ...prev, template_content: e.target.value }))}
+              />
               <Button onClick={createTemplate} disabled={loading || !newTemplate.name}>
                 Create Template
               </Button>
@@ -225,15 +201,15 @@ export const WorkflowTemplateManager: React.FC = () => {
       </div>
 
       <div className="flex items-center space-x-4">
-        <Select value={selectedDomain} onValueChange={setSelectedDomain}>
+        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
           <SelectTrigger className="w-48">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Domains</SelectItem>
-            {domains.map(domain => (
-              <SelectItem key={domain} value={domain}>
-                {domain.charAt(0).toUpperCase() + domain.slice(1)}
+            <SelectItem value="all">All Categories</SelectItem>
+            {categories.map(category => (
+              <SelectItem key={category} value={category}>
+                {category.charAt(0).toUpperCase() + category.slice(1)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -256,10 +232,10 @@ export const WorkflowTemplateManager: React.FC = () => {
                   </div>
                   <div className="flex flex-col gap-2">
                     <Badge variant="outline">
-                      {template.domain}
+                      {template.category}
                     </Badge>
-                    {template.is_featured && (
-                      <Badge variant="secondary">Featured</Badge>
+                    {template.jurisdiction && (
+                      <Badge variant="secondary">{template.jurisdiction}</Badge>
                     )}
                   </div>
                 </div>
@@ -300,7 +276,7 @@ export const WorkflowTemplateManager: React.FC = () => {
       {templates.length === 0 && !loading && (
         <div className="text-center py-12">
           <p className="text-muted-foreground">
-            No workflow templates found for the selected domain.
+            No workflow templates found for the selected category.
           </p>
         </div>
       )}

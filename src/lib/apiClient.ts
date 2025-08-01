@@ -28,7 +28,7 @@ export class APIClient {
         console.error('Error fetching questions:', questionsError);
         // Return mock questions for now
         return {
-          sessionId: 'mock-session-' + Date.now(),
+          sessionId: crypto.randomUUID(), // Use proper UUID
           questions: [
             {
               id: 'q1',
@@ -90,7 +90,7 @@ export class APIClient {
   async processRequirement(sessionId: string, answers: any, action: string = 'update') {
     try {
       if (action === 'complete') {
-        // Get the session first to access tenant_id and user_id
+        // Get the session first
         const { data: sessionData, error: sessionFetchError } = await supabase
           .from('requirement_sessions')
           .select('*')
@@ -103,7 +103,7 @@ export class APIClient {
         const { data: session, error: updateError } = await supabase
           .from('requirement_sessions')
           .update({
-            session_data: { ...sessionData.session_data, answers },
+            session_data: { answers },
             status: 'completed',
             updated_at: new Date().toISOString()
           })
@@ -116,7 +116,7 @@ export class APIClient {
         // Generate initial specification based on answers
         const specification = this.generateSpecFromAnswers(answers, session.domain);
         
-        // Create spec record using the correct tenant_id and user_id from session
+        // Create spec record using proper tenant and user data
         const { data: spec, error: specError } = await supabase
           .from('specs')
           .insert({
