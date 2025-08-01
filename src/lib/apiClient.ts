@@ -62,7 +62,10 @@ export class APIClient {
           domain,
           tenant_id: tenantId,
           user_id: user?.id,
-          status: 'active'
+          status: 'active',
+          answers: {},
+          spec_data: {},
+          validation_results: {}
         })
         .select()
         .single();
@@ -108,7 +111,7 @@ export class APIClient {
           .from('specs')
           .insert({
             session_id: sessionId,
-            tenant_id: session.tenant_id,
+            tenant_id: session.tenant_id || '00000000-0000-0000-0000-000000000000',
             user_id: session.user_id,
             domain: session.domain,
             payload: specification,

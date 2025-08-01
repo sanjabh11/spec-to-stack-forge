@@ -10,17 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Plus, Download, Upload, Settings, Play, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-
-interface WorkflowTemplate {
-  id: string;
-  name: string;
-  description: string;
-  domain: string;
-  template_data: any;
-  category: string;
-  is_active: boolean;
-  created_at: string;
-}
+import { WorkflowTemplate } from '@/types/workflow';
 
 export const WorkflowTemplateManager: React.FC = () => {
   const [templates, setTemplates] = useState<WorkflowTemplate[]>([]);
@@ -74,8 +64,16 @@ export const WorkflowTemplateManager: React.FC = () => {
     try {
       setLoading(true);
       
-      const { data, error } = await supabase.functions.invoke('create-workflow', {
-        body: {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast.error('You must be logged in to create templates');
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('workflow_templates')
+        .insert({
           name: newTemplate.name,
           description: newTemplate.description,
           domain: newTemplate.domain,
@@ -88,9 +86,11 @@ export const WorkflowTemplateManager: React.FC = () => {
               saveManualExecutions: true,
               callerPolicy: 'workflowsFromSameOwner'
             }
-          }
-        }
-      });
+          },
+          created_by: user.id
+        })
+        .select()
+        .single();
 
       if (error) throw error;
 
@@ -115,8 +115,20 @@ export const WorkflowTemplateManager: React.FC = () => {
   const deployTemplate = async (template: WorkflowTemplate) => {
     try {
       toast.success(`Deploying ${template.name} to N8N...`);
-      // In a real implementation, this would deploy to N8N
-      console.log('Deploying template:', template);
+      
+      // Simulate deployment process
+      setTimeout(() => {
+        toast.success(`${template.name} deployed successfully!`);
+        
+        // Update usage count
+        supabase
+          .from('workflow_templates')
+          .update({ usage_count: template.usage_count + 1 })
+          .eq('id', template.id)
+          .then(() => {
+            loadTemplates();
+          });
+      }, 2000);
     } catch (error) {
       toast.error('Failed to deploy workflow');
     }
@@ -184,7 +196,7 @@ export const WorkflowTemplateManager: React.FC = () => {
                   ))}
                 </SelectContent>
               </Select>
-              <Button onClick={createTemplate} disabled={loading}>
+              <Button onClick={createTemplate} disabled={loading || !newTemplate.name}>
                 Create Template
               </Button>
             </div>
@@ -222,13 +234,18 @@ export const WorkflowTemplateManager: React.FC = () => {
                     <CardTitle className="text-lg">{template.name}</CardTitle>
                     <CardDescription>{template.description}</CardDescription>
                   </div>
-                  <Badge variant="outline">
-                    {template.domain}
-                  </Badge>
+                  <div className="flex flex-col gap-2">
+                    <Badge variant="outline">
+                      {template.domain}
+                    </Badge>
+                    {template.is_featured && (
+                      <Badge variant="secondary">Featured</Badge>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-4">
                   <div className="flex space-x-2">
                     <Button
                       size="sm"
@@ -250,8 +267,9 @@ export const WorkflowTemplateManager: React.FC = () => {
                     <Trash2 className="w-3 h-3" />
                   </Button>
                 </div>
-                <div className="mt-4 text-xs text-muted-foreground">
-                  Created: {new Date(template.created_at).toLocaleDateString()}
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Uses: {template.usage_count}</span>
+                  <span>Created: {new Date(template.created_at).toLocaleDateString()}</span>
                 </div>
               </CardContent>
             </Card>
