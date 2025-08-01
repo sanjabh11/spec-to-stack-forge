@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Download, Upload, Settings, Play, Trash2 } from 'lucide-react';
+import { Plus, Play, Settings, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { WorkflowTemplate } from '@/types/workflow';
@@ -39,7 +39,7 @@ export const WorkflowTemplateManager: React.FC = () => {
     try {
       let query = supabase
         .from('workflow_templates')
-        .select('*')
+        .select('id, name, description, domain, template_data, category, is_active, created_at, updated_at, created_by, preview_image, usage_count, is_featured')
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
@@ -51,7 +51,24 @@ export const WorkflowTemplateManager: React.FC = () => {
 
       if (error) throw error;
 
-      setTemplates(data || []);
+      // Transform the data to match our interface
+      const transformedData: WorkflowTemplate[] = (data || []).map(item => ({
+        id: item.id,
+        name: item.name,
+        description: item.description,
+        domain: item.domain,
+        template_data: item.template_data,
+        category: item.category,
+        is_active: item.is_active,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+        created_by: item.created_by,
+        preview_image: item.preview_image,
+        usage_count: item.usage_count,
+        is_featured: item.is_featured
+      }));
+
+      setTemplates(transformedData);
     } catch (error: any) {
       toast.error('Failed to load workflow templates');
       console.error('Error loading templates:', error);
@@ -87,7 +104,10 @@ export const WorkflowTemplateManager: React.FC = () => {
               callerPolicy: 'workflowsFromSameOwner'
             }
           },
-          created_by: user.id
+          created_by: user.id,
+          is_active: true,
+          usage_count: 0,
+          is_featured: false
         })
         .select()
         .single();

@@ -55,18 +55,19 @@ export class APIClient {
         };
       }
 
-      // Create new requirement session
+      // Create new requirement session with the correct fields
+      const sessionData = {
+        domain,
+        status: 'active',
+        session_data: {},
+        project_id: null,
+        tenant_id: tenantId,
+        user_id: user?.id || null
+      };
+
       const { data: session, error: sessionError } = await supabase
         .from('requirement_sessions')
-        .insert({
-          domain,
-          tenant_id: tenantId,
-          user_id: user?.id,
-          status: 'active',
-          answers: {},
-          spec_data: {},
-          validation_results: {}
-        })
+        .insert(sessionData)
         .select()
         .single();
 
@@ -89,11 +90,20 @@ export class APIClient {
   async processRequirement(sessionId: string, answers: any, action: string = 'update') {
     try {
       if (action === 'complete') {
+        // Get the session first to access tenant_id and user_id
+        const { data: sessionData, error: sessionFetchError } = await supabase
+          .from('requirement_sessions')
+          .select('*')
+          .eq('id', sessionId)
+          .single();
+
+        if (sessionFetchError) throw sessionFetchError;
+
         // Update session with final answers and generate specification
         const { data: session, error: updateError } = await supabase
           .from('requirement_sessions')
           .update({
-            answers,
+            session_data: { ...sessionData.session_data, answers },
             status: 'completed',
             updated_at: new Date().toISOString()
           })
@@ -106,13 +116,13 @@ export class APIClient {
         // Generate initial specification based on answers
         const specification = this.generateSpecFromAnswers(answers, session.domain);
         
-        // Create spec record
+        // Create spec record using the correct tenant_id and user_id from session
         const { data: spec, error: specError } = await supabase
           .from('specs')
           .insert({
             session_id: sessionId,
-            tenant_id: session.tenant_id || '00000000-0000-0000-0000-000000000000',
-            user_id: session.user_id,
+            tenant_id: sessionData.tenant_id || '00000000-0000-0000-0000-000000000000',
+            user_id: sessionData.user_id,
             domain: session.domain,
             payload: specification,
             validation_status: 'completed'
@@ -133,7 +143,7 @@ export class APIClient {
         const { error } = await supabase
           .from('requirement_sessions')
           .update({
-            answers,
+            session_data: { answers },
             updated_at: new Date().toISOString()
           })
           .eq('id', sessionId);
