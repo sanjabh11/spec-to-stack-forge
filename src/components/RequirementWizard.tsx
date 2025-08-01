@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,15 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { ArrowLeft, ArrowRight, CheckCircle } from 'lucide-react';
 import { apiClient } from '@/lib/apiClient';
 import { useToast } from '@/hooks/use-toast';
-
-interface Question {
-  id: string;
-  question_text: string;
-  question_type: 'text' | 'select' | 'multiselect' | 'number' | 'textarea';
-  options?: string[];
-  required: boolean;
-  category: string;
-}
+import { Question } from '@/types';
 
 interface WizardProps {
   domain: string;
@@ -41,7 +32,20 @@ export default function RequirementWizard({ domain, onComplete }: WizardProps) {
     try {
       const data = await apiClient.startRequirementSession(domain);
       setSessionId(data.sessionId);
-      setQuestions(data.questions);
+      // Transform database rows to Question interface
+      const transformedQuestions: Question[] = data.questions.map((q: any) => ({
+        id: q.id,
+        domain: q.domain,
+        subdomain: q.subdomain,
+        question_order: q.question_order,
+        question_text: q.question_text,
+        question_type: q.question_type,
+        options: q.options || [],
+        required: q.required,
+        category: q.category,
+        validation_rules: q.validation_rules
+      }));
+      setQuestions(transformedQuestions);
     } catch (error: any) {
       toast({
         title: "Failed to start session",
@@ -147,7 +151,7 @@ export default function RequirementWizard({ domain, onComplete }: WizardProps) {
           {currentQuestion.question_type === 'text' && (
             <Input
               value={answers[currentQuestion.id] || ''}
-              onChange={(e) => handleAnswer(e.target.value)}
+              onChange={(e) => setAnswers(prev => ({ ...prev, [currentQuestion.id]: e.target.value }))}
               placeholder="Enter your answer..."
               className="w-full"
             />
@@ -156,7 +160,7 @@ export default function RequirementWizard({ domain, onComplete }: WizardProps) {
           {currentQuestion.question_type === 'textarea' && (
             <Textarea
               value={answers[currentQuestion.id] || ''}
-              onChange={(e) => handleAnswer(e.target.value)}
+              onChange={(e) => setAnswers(prev => ({ ...prev, [currentQuestion.id]: e.target.value }))}
               placeholder="Provide detailed information..."
               rows={4}
               className="w-full"
@@ -166,7 +170,7 @@ export default function RequirementWizard({ domain, onComplete }: WizardProps) {
           {currentQuestion.question_type === 'select' && currentQuestion.options && (
             <Select 
               value={answers[currentQuestion.id] || ''} 
-              onValueChange={handleAnswer}
+              onValueChange={(value) => setAnswers(prev => ({ ...prev, [currentQuestion.id]: value }))}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select an option..." />
@@ -185,7 +189,7 @@ export default function RequirementWizard({ domain, onComplete }: WizardProps) {
             <Input
               type="number"
               value={answers[currentQuestion.id] || ''}
-              onChange={(e) => handleAnswer(parseInt(e.target.value))}
+              onChange={(e) => setAnswers(prev => ({ ...prev, [currentQuestion.id]: parseInt(e.target.value) }))}
               placeholder="Enter a number..."
               className="w-full"
             />
@@ -207,7 +211,7 @@ export default function RequirementWizard({ domain, onComplete }: WizardProps) {
                         const updated = selected
                           ? current.filter((item: string) => item !== option)
                           : [...current, option];
-                        handleAnswer(updated);
+                        setAnswers(prev => ({ ...prev, [currentQuestion.id]: updated }));
                       }}
                     >
                       {option}
@@ -225,7 +229,7 @@ export default function RequirementWizard({ domain, onComplete }: WizardProps) {
         <CardContent className="flex items-center justify-between p-4">
           <Button
             variant="outline"
-            onClick={prevStep}
+            onClick={() => setCurrentStep(prev => prev - 1)}
             disabled={currentStep === 0}
             className="flex items-center space-x-2"
           >
@@ -245,7 +249,32 @@ export default function RequirementWizard({ domain, onComplete }: WizardProps) {
           </div>
 
           <Button
-            onClick={nextStep}
+            onClick={async () => {
+              if (currentStep < questions.length - 1) {
+                setCurrentStep(prev => prev + 1);
+              } else {
+                setLoading(true);
+                try {
+                  const data = await apiClient.processRequirement(sessionId, answers, 'complete');
+                  onComplete({
+                    sessionId,
+                    domain,
+                    answers,
+                    specification: data.specification,
+                    recommendations: data.recommendations,
+                    specId: data.specId
+                  });
+                } catch (error: any) {
+                  toast({
+                    title: "Failed to complete session",
+                    description: error.message,
+                    variant: "destructive"
+                  });
+                } finally {
+                  setLoading(false);
+                }
+              }
+            }}
             disabled={
               loading ||
               (currentQuestion.required && 

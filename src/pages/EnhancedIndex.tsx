@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,15 +12,7 @@ import { RequirementHistory } from "@/components/RequirementHistory";
 import { ExecutiveDashboard } from "@/components/ExecutiveDashboard";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-  tenant_id: string;
-  profile?: any;
-}
+import { User } from "@/types";
 
 interface EnhancedIndexProps {
   user: User | null;
@@ -105,6 +96,14 @@ export default function EnhancedIndex({ user, onLogout }: EnhancedIndexProps) {
     setShowResults(false);
   };
 
+  const handleArtifactsGenerated = (artifacts: any) => {
+    console.log('Artifacts generated:', artifacts);
+    toast({
+      title: "Artifacts Generated",
+      description: "Your architecture artifacts have been successfully generated.",
+    });
+  };
+
   if (showWizard && selectedDomain) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -112,7 +111,7 @@ export default function EnhancedIndex({ user, onLogout }: EnhancedIndexProps) {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-3xl font-bold">Requirements Capture</h1>
-              <p className="text-muted-foreground">Domain: {domains.find(d => d.id === selectedDomain)?.name}</p>
+              <p className="text-muted-foreground">Domain: {selectedDomain}</p>
             </div>
             <div className="flex items-center gap-4">
               <Button variant="outline" onClick={handleStartNew}>
@@ -166,7 +165,11 @@ export default function EnhancedIndex({ user, onLogout }: EnhancedIndexProps) {
               )}
             </div>
           </div>
-          <GenerationResults sessionData={currentSessionData} />
+          <GenerationResults 
+            sessionData={currentSessionData}
+            domain={currentSessionData.domain}
+            onArtifactsGenerated={handleArtifactsGenerated}
+          />
         </div>
       </div>
     );
