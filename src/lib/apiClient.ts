@@ -5,9 +5,13 @@ export interface RequirementSession {
   id: string;
   domain: string;
   status: string;
-  session_data: any;
+  answers: any;
+  spec_data: any;
+  validation_results: any;
   created_at: string;
   updated_at: string;
+  tenant_id: string;
+  user_id?: string;
 }
 
 export interface GeneratedSpec {
@@ -17,6 +21,8 @@ export interface GeneratedSpec {
   status: string;
   version: number;
   created_at: string;
+  session_id?: string;
+  domain: string;
 }
 
 export interface ArtifactRequest {
@@ -29,21 +35,184 @@ export interface ArtifactRequest {
 
 export class APIClient {
   async startRequirementSession(domain: string) {
-    const { data, error } = await supabase.functions.invoke('start-requirement-session', {
-      body: { domain }
-    });
+    try {
+      // Get current user's tenant_id
+      const { data: { user } } = await supabase.auth.getUser();
+      let tenantId = '00000000-0000-0000-0000-000000000000'; // default tenant
 
-    if (error) throw new Error(`Failed to start session: ${error.message}`);
-    return data;
+      if (user) {
+        const { data: profile } = await supabase
+          .from('users')
+          .select('tenant_id')
+          .eq('auth_user_id', user.id)
+          .single();
+        
+        if (profile?.tenant_id) {
+          tenantId = profile.tenant_id;
+        }
+      }
+
+      // Get questions for the domain
+      const { data: questions, error: questionsError } = await supabase
+        .from('question_templates')
+        .select('*')
+        .eq('domain', domain)
+        .order('question_order');
+
+      if (questionsError) throw questionsError;
+
+      // Create new requirement session
+      const { data: session, error: sessionError } = await supabase
+        .from('requirement_sessions')
+        .insert({
+          domain,
+          tenant_id: tenantId,
+          user_id: user?.id,
+          status: 'active'
+        })
+        .select()
+        .single();
+
+      if (sessionError) throw sessionError;
+
+      return {
+        sessionId: session.id,
+        questions: questions || [],
+        domain
+      };
+    } catch (error: any) {
+      console.error('Error starting requirement session:', error);
+      throw new Error(`Failed to start session: ${error.message}`);
+    }
   }
 
-  async processRequirement(sessionId: string, response: string) {
-    const { data, error } = await supabase.functions.invoke('process-requirement', {
-      body: { sessionId, response }
+  async processRequirement(sessionId: string, answers: any, action: string = 'update') {
+    try {
+      if (action === 'complete') {
+        // Update session with final answers and generate specification
+        const { data: session, error: updateError } = await supabase
+          .from('requirement_sessions')
+          .update({
+            answers,
+            status: 'completed',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', sessionId)
+          .select()
+          .single();
+
+        if (updateError) throw updateError;
+
+        // Generate initial specification based on answers
+        const specification = this.generateSpecFromAnswers(answers, session.domain);
+        
+        // Create spec record
+        const { data: spec, error: specError } = await supabase
+          .from('specs')
+          .insert({
+            session_id: sessionId,
+            tenant_id: session.tenant_id,
+            user_id: session.user_id,
+            domain: session.domain,
+            payload: specification,
+            validation_status: 'completed'
+          })
+          .select()
+          .single();
+
+        if (specError) throw specError;
+
+        return {
+          specification,
+          recommendations: this.generateRecommendations(answers, session.domain),
+          sessionId,
+          specId: spec.id
+        };
+      } else {
+        // Just update the session with current answers
+        const { error } = await supabase
+          .from('requirement_sessions')
+          .update({
+            answers,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', sessionId);
+
+        if (error) throw error;
+
+        return { success: true };
+      }
+    } catch (error: any) {
+      console.error('Error processing requirement:', error);
+      throw new Error(`Failed to process requirement: ${error.message}`);
+    }
+  }
+
+  private generateSpecFromAnswers(answers: any, domain: string) {
+    return {
+      domain,
+      requirements: answers,
+      generatedAt: new Date().toISOString(),
+      version: '1.0.0',
+      compliance: this.extractComplianceFromAnswers(answers),
+      architecture: {
+        type: 'microservices',
+        deployment: 'kubernetes',
+        scaling: 'auto'
+      }
+    };
+  }
+
+  private generateRecommendations(answers: any, domain: string) {
+    const recommendations = [];
+    
+    // Domain-specific recommendations
+    if (domain === 'healthcare') {
+      recommendations.push({
+        category: 'Compliance',
+        priority: 'high',
+        title: 'HIPAA Compliance Setup',
+        description: 'Implement end-to-end encryption and audit logging for HIPAA compliance.'
+      });
+    } else if (domain === 'finance') {
+      recommendations.push({
+        category: 'Security',
+        priority: 'high',
+        title: 'PCI DSS Compliance',
+        description: 'Configure secure payment processing and data encryption.'
+      });
+    }
+
+    // General recommendations based on answers
+    if (answers.budget && answers.budget.includes('< $10,000')) {
+      recommendations.push({
+        category: 'Cost Optimization',
+        priority: 'medium',
+        title: 'Cost-Effective Architecture',
+        description: 'Consider serverless architecture to minimize infrastructure costs.'
+      });
+    }
+
+    return recommendations;
+  }
+
+  private extractComplianceFromAnswers(answers: any) {
+    const compliance = [];
+    
+    // Extract compliance requirements from answers
+    Object.values(answers).forEach((answer: any) => {
+      if (Array.isArray(answer)) {
+        answer.forEach(item => {
+          if (typeof item === 'string' && 
+              (item.includes('HIPAA') || item.includes('GDPR') || 
+               item.includes('SOC2') || item.includes('PCI'))) {
+            compliance.push(item);
+          }
+        });
+      }
     });
 
-    if (error) throw new Error(`Failed to process requirement: ${error.message}`);
-    return data;
+    return [...new Set(compliance)];
   }
 
   async generateArchitecture(request: ArtifactRequest) {
@@ -108,6 +277,33 @@ export class APIClient {
       .limit(100);
 
     if (error) throw new Error(`Failed to get audit logs: ${error.message}`);
+    return data;
+  }
+
+  async getRequirementHistory() {
+    const { data, error } = await supabase
+      .from('requirement_sessions')
+      .select(`
+        *,
+        specs!inner(*)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (error) throw new Error(`Failed to get requirement history: ${error.message}`);
+    return data;
+  }
+
+  async getProjects() {
+    const { data, error } = await supabase
+      .from('projects')
+      .select(`
+        *,
+        specs!inner(*)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) throw new Error(`Failed to get projects: ${error.message}`);
     return data;
   }
 }

@@ -15,29 +15,25 @@ const queryClient = new QueryClient();
 const App = () => {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState<any>(null);
 
   useEffect(() => {
-    // Temporarily bypass authentication - create a mock user
-    const mockUser = {
-      id: 'demo-user',
-      email: 'demo@example.com',
-      profile: {
-        name: 'Demo User',
-        role: 'user',
-        tenant_id: 'default'
-      },
-      name: 'Demo User',
-      role: 'user',
-      tenant_id: 'default'
-    };
-    
-    setUser(mockUser);
-    setLoading(false);
-    
-    // Comment out the real auth logic for now
-    /*
-    // Check active session
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setSession(session);
+        if (session?.user) {
+          await handleAuthUser(session.user);
+        } else {
+          setUser(null);
+        }
+        setLoading(false);
+      }
+    );
+
+    // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
       if (session?.user) {
         handleAuthUser(session.user);
       } else {
@@ -45,23 +41,12 @@ const App = () => {
       }
     });
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        handleAuthUser(session.user);
-      } else if (event === 'SIGNED_OUT') {
-        setUser(null);
-        setLoading(false);
-      }
-    });
-
     return () => subscription.unsubscribe();
-    */
   }, []);
 
   const handleAuthUser = async (authUser: any) => {
     try {
-      // Get user profile first
+      // Get user profile
       const { data: profile, error } = await supabase
         .from('users')
         .select('*')
@@ -83,7 +68,7 @@ const App = () => {
             email: authUser.email,
             name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
             role: 'user',
-            tenant_id: 'default'
+            tenant_id: '00000000-0000-0000-0000-000000000000'
           })
           .select()
           .single();
@@ -100,7 +85,7 @@ const App = () => {
         profile: userProfile,
         name: userProfile?.name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
         role: userProfile?.role || 'user',
-        tenant_id: userProfile?.tenant_id || 'default'
+        tenant_id: userProfile?.tenant_id || '00000000-0000-0000-0000-000000000000'
       });
     } catch (error) {
       console.error('Auth user handling error:', error);
@@ -110,9 +95,7 @@ const App = () => {
   };
 
   const handleLogout = async () => {
-    // Temporarily disabled
-    // await supabase.auth.signOut();
-    console.log('Logout temporarily disabled');
+    await supabase.auth.signOut();
   };
 
   if (loading) {
@@ -126,7 +109,6 @@ const App = () => {
     );
   }
 
-  // Temporarily always show the main app
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -134,6 +116,7 @@ const App = () => {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<EnhancedIndex user={user} onLogout={handleLogout} />} />
+            <Route path="/auth" element={<AuthPage />} />
             <Route path="/workflows" element={<WorkflowsPage />} />
             {navItems.map(({ to, page }) => (
               <Route key={to} path={to} element={page} />

@@ -8,13 +8,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ArrowLeft, ArrowRight, CheckCircle } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { apiClient } from '@/lib/apiClient';
 import { useToast } from '@/hooks/use-toast';
 
 interface Question {
   id: string;
-  question: string;
-  type: 'text' | 'select' | 'multiselect' | 'number' | 'textarea';
+  question_text: string;
+  question_type: 'text' | 'select' | 'multiselect' | 'number' | 'textarea';
   options?: string[];
   required: boolean;
   category: string;
@@ -39,12 +39,7 @@ export default function RequirementWizard({ domain, onComplete }: WizardProps) {
 
   const initializeSession = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('start-requirement-session', {
-        body: { domain }
-      });
-
-      if (error) throw error;
-
+      const data = await apiClient.startRequirementSession(domain);
       setSessionId(data.sessionId);
       setQuestions(data.questions);
     } catch (error: any) {
@@ -80,22 +75,15 @@ export default function RequirementWizard({ domain, onComplete }: WizardProps) {
   const completeSession = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('process-requirement', {
-        body: {
-          sessionId,
-          answers,
-          action: 'complete'
-        }
-      });
-
-      if (error) throw error;
+      const data = await apiClient.processRequirement(sessionId, answers, 'complete');
 
       onComplete({
         sessionId,
         domain,
         answers,
         specification: data.specification,
-        recommendations: data.recommendations
+        recommendations: data.recommendations,
+        specId: data.specId
       });
     } catch (error: any) {
       toast({
@@ -153,10 +141,10 @@ export default function RequirementWizard({ domain, onComplete }: WizardProps) {
       {/* Question Card */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">{currentQuestion.question}</CardTitle>
+          <CardTitle className="text-lg">{currentQuestion.question_text}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {currentQuestion.type === 'text' && (
+          {currentQuestion.question_type === 'text' && (
             <Input
               value={answers[currentQuestion.id] || ''}
               onChange={(e) => handleAnswer(e.target.value)}
@@ -165,7 +153,7 @@ export default function RequirementWizard({ domain, onComplete }: WizardProps) {
             />
           )}
 
-          {currentQuestion.type === 'textarea' && (
+          {currentQuestion.question_type === 'textarea' && (
             <Textarea
               value={answers[currentQuestion.id] || ''}
               onChange={(e) => handleAnswer(e.target.value)}
@@ -175,7 +163,7 @@ export default function RequirementWizard({ domain, onComplete }: WizardProps) {
             />
           )}
 
-          {currentQuestion.type === 'select' && currentQuestion.options && (
+          {currentQuestion.question_type === 'select' && currentQuestion.options && (
             <Select 
               value={answers[currentQuestion.id] || ''} 
               onValueChange={handleAnswer}
@@ -193,7 +181,7 @@ export default function RequirementWizard({ domain, onComplete }: WizardProps) {
             </Select>
           )}
 
-          {currentQuestion.type === 'number' && (
+          {currentQuestion.question_type === 'number' && (
             <Input
               type="number"
               value={answers[currentQuestion.id] || ''}
@@ -203,7 +191,7 @@ export default function RequirementWizard({ domain, onComplete }: WizardProps) {
             />
           )}
 
-          {currentQuestion.type === 'multiselect' && currentQuestion.options && (
+          {currentQuestion.question_type === 'multiselect' && currentQuestion.options && (
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">Select all that apply:</p>
               <div className="flex flex-wrap gap-2">
@@ -259,9 +247,10 @@ export default function RequirementWizard({ domain, onComplete }: WizardProps) {
           <Button
             onClick={nextStep}
             disabled={
-              currentQuestion.required && 
-              (!answers[currentQuestion.id] || 
-               (Array.isArray(answers[currentQuestion.id]) && answers[currentQuestion.id].length === 0))
+              loading ||
+              (currentQuestion.required && 
+               (!answers[currentQuestion.id] || 
+                (Array.isArray(answers[currentQuestion.id]) && answers[currentQuestion.id].length === 0)))
             }
             className="flex items-center space-x-2"
           >

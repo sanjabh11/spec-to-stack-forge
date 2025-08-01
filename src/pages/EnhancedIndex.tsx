@@ -1,351 +1,340 @@
-import { useState } from "react";
-import { Header } from "@/components/Header";
-import { DomainSelector } from "@/components/DomainSelector";
+
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AlertCircle, CheckCircle2, Clock, Users, Zap, Shield, ArrowRight, LogOut, LogIn } from "lucide-react";
 import RequirementWizard from "@/components/RequirementWizard";
 import { GenerationResults } from "@/components/GenerationResults";
 import { StatsOverview } from "@/components/StatsOverview";
-import { DeploymentDashboard } from "@/components/DeploymentDashboard";
-import { HealthCheck } from "@/components/HealthCheck";
-import EnhancedDocumentUpload from "@/components/EnhancedDocumentUpload";
-import { ObservabilityDashboard } from "@/components/ObservabilityDashboard";
-import { GitHubIntegration } from "@/components/GitHubIntegration";
-import EnhancedExecutiveDashboard from "@/components/EnhancedExecutiveDashboard";
-import ComplianceScore from "@/components/ComplianceScore";
-import WorkflowBuilderForm from "@/components/WorkflowBuilderForm";
-import OnboardingTour from "@/components/OnboardingTour";
-import HelpCenter from "@/components/HelpCenter";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-  LogOut, 
-  User, 
-  Settings, 
-  Database, 
-  ArrowLeft,
-  BarChart3,
-  Upload,
-  DollarSign,
-  Zap,
-  Shield,
-  Workflow
-} from "lucide-react";
-import { RequirementHistory } from '@/components/RequirementHistory';
+import { RequirementHistory } from "@/components/RequirementHistory";
+import { ExecutiveDashboard } from "@/components/ExecutiveDashboard";
+import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
-interface IndexProps {
-  user: any;
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  tenant_id: string;
+  profile?: any;
+}
+
+interface EnhancedIndexProps {
+  user: User | null;
   onLogout: () => void;
 }
 
-const EnhancedIndex = ({ user, onLogout }: IndexProps) => {
-  const [selectedDomain, setSelectedDomain] = useState("");
-  const [sessionData, setSessionData] = useState(null);
-  const [artifacts, setArtifacts] = useState(null);
-  const [currentView, setCurrentView] = useState<'domains' | 'wizard' | 'results' | 'deploy' | 'upload' | 'observability' | 'executive' | 'workflows'>('domains');
-  const [showHealthCheck, setShowHealthCheck] = useState(false);
+export default function EnhancedIndex({ user, onLogout }: EnhancedIndexProps) {
+  const [selectedDomain, setSelectedDomain] = useState<string>('');
+  const [currentSessionData, setCurrentSessionData] = useState<any>(null);
+  const [showWizard, setShowWizard] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
-  const resetToStart = () => {
-    setSelectedDomain("");
-    setSessionData(null);
-    setArtifacts(null);
-    setCurrentView('domains');
+  const domains = [
+    {
+      id: 'healthcare',
+      name: 'Healthcare',
+      description: 'HIPAA-compliant AI solutions for medical applications',
+      icon: '🏥',
+      compliance: ['HIPAA', 'FDA', 'GDPR'],
+      useCases: ['Clinical Decision Support', 'Medical Imaging', 'Patient Risk Assessment']
+    },
+    {
+      id: 'finance',
+      name: 'Finance',
+      description: 'Secure financial AI platforms with regulatory compliance',
+      icon: '💰',
+      compliance: ['SOX', 'PCI-DSS', 'GDPR'],
+      useCases: ['Fraud Detection', 'Risk Assessment', 'Algorithmic Trading']
+    },
+    {
+      id: 'legal',
+      name: 'Legal',
+      description: 'AI-powered legal document analysis and contract review',
+      icon: '⚖️',
+      compliance: ['GDPR', 'Attorney-Client Privilege'],
+      useCases: ['Contract Analysis', 'Legal Research', 'Document Review']
+    },
+    {
+      id: 'education',
+      name: 'Education',
+      description: 'Personalized learning platforms and educational AI',
+      icon: '🎓',
+      compliance: ['FERPA', 'COPPA', 'GDPR'],
+      useCases: ['Personalized Learning', 'Assessment Tools', 'Content Generation']
+    },
+    {
+      id: 'retail',
+      name: 'Retail',
+      description: 'Customer experience and inventory optimization AI',
+      icon: '🛍️',
+      compliance: ['PCI-DSS', 'GDPR', 'CCPA'],
+      useCases: ['Recommendation Engines', 'Inventory Management', 'Customer Service']
+    },
+    {
+      id: 'manufacturing',
+      name: 'Manufacturing',
+      description: 'Industrial AI for predictive maintenance and optimization',
+      icon: '🏭',
+      compliance: ['ISO 27001', 'IEC 62443'],
+      useCases: ['Predictive Maintenance', 'Quality Control', 'Supply Chain Optimization']
+    }
+  ];
+
+  const handleDomainSelect = (domain: string) => {
+    setSelectedDomain(domain);
+    setShowWizard(true);
   };
 
-  const handleWizardComplete = (data: any) => {
-    setSessionData(data);
-    setCurrentView('results');
+  const handleWizardComplete = (sessionData: any) => {
+    setCurrentSessionData(sessionData);
+    setShowWizard(false);
+    setShowResults(true);
   };
 
-  const handleArtifactsGenerated = (data: any) => {
-    setArtifacts(data);
-    setCurrentView('deploy');
+  const handleStartNew = () => {
+    setSelectedDomain('');
+    setCurrentSessionData(null);
+    setShowWizard(false);
+    setShowResults(false);
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
-      {/* Onboarding Tour */}
-      <OnboardingTour />
-      
-      {/* Help Center */}
-      <HelpCenter />
-
-      {/* User Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-3">
-        <div className="flex items-center justify-between max-w-7xl mx-auto">
-          <div className="flex items-center space-x-3">
-            <User className="w-6 h-6 text-blue-600" />
+  if (showWizard && selectedDomain) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex items-center justify-between mb-6">
             <div>
-              <p className="font-semibold text-gray-900">
-                {user?.name || user?.email?.split('@')[0] || "User"}
-              </p>
-              <p className="text-sm text-gray-600">
-                {user?.email || "No email"}
-              </p>
+              <h1 className="text-3xl font-bold">Requirements Capture</h1>
+              <p className="text-muted-foreground">Domain: {domains.find(d => d.id === selectedDomain)?.name}</p>
             </div>
-            <Badge variant="outline" className="ml-2">
-              {user?.role || "user"}
-            </Badge>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Button variant="outline" size="sm" onClick={() => setShowHealthCheck(!showHealthCheck)}>
-              <Settings className="w-4 h-4 mr-2" />
-              System Status
-            </Button>
-            <Button variant="outline" onClick={onLogout} className="flex items-center space-x-2">
-              <LogOut className="w-4 h-4" />
-              <span>Logout</span>
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      <div className="container mx-auto py-8 space-y-8">
-        <Header />
-        
-        {/* Health Check Panel */}
-        {showHealthCheck && (
-          <div className="max-w-md mx-auto">
-            <HealthCheck />
-          </div>
-        )}
-        
-        {/* Navigation */}
-        {currentView !== 'domains' && (
-          <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="sm" onClick={resetToStart}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Start Over
-            </Button>
-            <div className="flex space-x-2">
-              {selectedDomain && (
-                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                  {selectedDomain}
-                </Badge>
-              )}
-              {sessionData && (
-                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                  Requirements Complete
-                </Badge>
-              )}
-              {artifacts && (
-                <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                  Artifacts Generated
-                </Badge>
+            <div className="flex items-center gap-4">
+              <Button variant="outline" onClick={handleStartNew}>
+                Back to Domains
+              </Button>
+              {user ? (
+                <Button variant="ghost" onClick={onLogout}>
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Logout
+                </Button>
+              ) : (
+                <Button variant="ghost" onClick={() => navigate('/auth')}>
+                  <LogIn className="w-4 h-4 mr-2" />
+                  Login
+                </Button>
               )}
             </div>
           </div>
-        )}
-
-        {/* Main Content */}
-        {currentView === 'domains' && (
-          <div className="text-center space-y-6">
-            <div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-4">
-                🚀 AI Platform Advisor - Enterprise Solution Generator
-              </h2>
-              <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-                Generate complete AI solutions with architecture, infrastructure, and deployment automation.
-                Select your domain to begin the journey.
-              </p>
-            </div>
-            
-            {/* Enhanced Quick Actions Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-6xl mx-auto mb-8">
-              <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setCurrentView('executive')}>
-                <CardHeader className="text-center pb-3">
-                  <BarChart3 className="w-8 h-8 mx-auto text-blue-600 mb-2" />
-                  <CardTitle className="text-lg">Executive Dashboard</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-gray-600">View key metrics, costs, and system performance</p>
-                </CardContent>
-              </Card>
-
-              <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setCurrentView('workflows')} data-tour="workflows">
-                <CardHeader className="text-center pb-3">
-                  <Workflow className="w-8 h-8 mx-auto text-purple-600 mb-2" />
-                  <CardTitle className="text-lg">Workflow Builder</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-gray-600">Create automated workflows with simple forms</p>
-                </CardContent>
-              </Card>
-
-              <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setCurrentView('upload')}>
-                <CardHeader className="text-center pb-3">
-                  <Database className="w-8 h-8 mx-auto text-green-600 mb-2" />
-                  <CardTitle className="text-lg">Document Library</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-gray-600">Upload and manage documents with smart tagging</p>
-                </CardContent>
-              </Card>
-
-              <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setCurrentView('observability')}>
-                <CardHeader className="text-center pb-3">
-                  <Shield className="w-8 h-8 mx-auto text-red-600 mb-2" />
-                  <CardTitle className="text-lg">Compliance</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-gray-600">Monitor compliance scores and security audits</p>
-                </CardContent>
-              </Card>
-            </div>
-            
-            {/* Project History */}
-            <div className="max-w-4xl mx-auto">
-              <RequirementHistory 
-                tenantId={user?.tenant_id}
-                onRestore={(session) => {
-                  setSessionData(session.session_data);
-                  setSelectedDomain(session.session_data?.domain || '');
-                  setCurrentView('wizard');
-                }}
-              />
-            </div>
-            
-            <DomainSelector 
-              onSelect={(domain) => {
-                setSelectedDomain(domain);
-                setCurrentView('wizard');
-              }} 
-            />
-          </div>
-        )}
-
-        {currentView === 'wizard' && selectedDomain && (
           <RequirementWizard 
             domain={selectedDomain} 
             onComplete={handleWizardComplete}
           />
-        )}
+        </div>
+      </div>
+    );
+  }
 
-        {currentView === 'results' && sessionData && (
-          <GenerationResults 
-            sessionData={sessionData} 
-            domain={selectedDomain}
-            onArtifactsGenerated={handleArtifactsGenerated}
-          />
-        )}
-
-        {currentView === 'executive' && (
-          <div className="space-y-6">
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm" onClick={() => setCurrentView('domains')}>
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Dashboard
-              </Button>
-              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                Executive Overview
-              </Badge>
+  if (showResults && currentSessionData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-3xl font-bold">Generated Architecture</h1>
+              <p className="text-muted-foreground">Session: {currentSessionData.sessionId}</p>
             </div>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
-                <EnhancedExecutiveDashboard />
-              </div>
-              <div className="space-y-6">
-                <ComplianceScore />
-              </div>
+            <div className="flex items-center gap-4">
+              <Button variant="outline" onClick={handleStartNew}>
+                Start New Project
+              </Button>
+              {user ? (
+                <Button variant="ghost" onClick={onLogout}>
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Logout
+                </Button>
+              ) : (
+                <Button variant="ghost" onClick={() => navigate('/auth')}>
+                  <LogIn className="w-4 h-4 mr-2" />
+                  Login
+                </Button>
+              )}
             </div>
           </div>
-        )}
+          <GenerationResults sessionData={currentSessionData} />
+        </div>
+      </div>
+    );
+  }
 
-        {currentView === 'workflows' && (
-          <div className="space-y-6">
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm" onClick={() => setCurrentView('domains')}>
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Dashboard
-              </Button>
-              <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                Workflow Builder
-              </Badge>
-            </div>
-            <WorkflowBuilderForm onWorkflowCreated={() => {
-              // Optionally refresh workflow list or show success
-            }} />
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              AI Platform Advisor
+            </h1>
+            <p className="text-xl text-muted-foreground mt-2">
+              Transform your vision into production-ready AI platforms
+            </p>
           </div>
-        )}
-
-        {currentView === 'deploy' && artifacts && sessionData && (
-          <Tabs defaultValue="deployment" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="deployment">Deployment</TabsTrigger>
-              <TabsTrigger value="github">GitHub Integration</TabsTrigger>
-              <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="deployment">
-              <DeploymentDashboard 
-                artifacts={artifacts}
-                sessionData={sessionData}
-                domain={selectedDomain}
-              />
-            </TabsContent>
-            
-            <TabsContent value="github">
-              <GitHubIntegration 
-                artifacts={artifacts}
-                sessionData={sessionData}
-                domain={selectedDomain}
-              />
-            </TabsContent>
-            
-            <TabsContent value="monitoring">
-              <ObservabilityDashboard />
-            </TabsContent>
-          </Tabs>
-        )}
-
-        {currentView === 'upload' && (
-          <div className="space-y-6">
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm" onClick={() => setCurrentView('domains')}>
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Domains
-              </Button>
-              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                Document Upload & Management
-              </Badge>
-            </div>
-            <EnhancedDocumentUpload 
-              onUploadComplete={(docs) => {
-                console.log('Documents uploaded:', docs);
-              }}
-            />
-          </div>
-        )}
-
-        {currentView === 'observability' && (
-          <div className="space-y-6">
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm" onClick={() => setCurrentView('domains')}>
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Dashboard
-              </Button>
-              <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
-                Observability & Compliance
-              </Badge>
-            </div>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
-                <ObservabilityDashboard />
+          <div className="flex items-center gap-4">
+            {user ? (
+              <div className="flex items-center gap-4">
+                <div className="text-right">
+                  <p className="text-sm font-medium">{user.name}</p>
+                  <p className="text-xs text-muted-foreground">{user.email}</p>
+                </div>
+                <Button variant="ghost" onClick={onLogout}>
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Logout
+                </Button>
               </div>
-              <div>
-                <ComplianceScore />
+            ) : (
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-green-600 border-green-600">
+                  Guest Mode
+                </Badge>
+                <Button variant="ghost" onClick={() => navigate('/auth')}>
+                  <LogIn className="w-4 h-4 mr-2" />
+                  Login
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <Tabs defaultValue="builder" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="builder">Platform Builder</TabsTrigger>
+            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+            <TabsTrigger value="history">History</TabsTrigger>
+            <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="builder" className="space-y-6">
+            {/* Domain Selection */}
+            <div className="space-y-6">
+              <div className="text-center space-y-4">
+                <h2 className="text-3xl font-bold">Choose Your Domain</h2>
+                <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                  Select the industry domain for your AI platform. Each domain comes with specialized templates, 
+                  compliance requirements, and best practices.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {domains.map((domain) => (
+                  <Card 
+                    key={domain.id} 
+                    className="cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-1 border-2 hover:border-blue-300"
+                    onClick={() => handleDomainSelect(domain.id)}
+                  >
+                    <CardHeader>
+                      <div className="flex items-center gap-3">
+                        <span className="text-3xl">{domain.icon}</span>
+                        <div>
+                          <CardTitle className="text-xl">{domain.name}</CardTitle>
+                          <CardDescription className="text-sm">
+                            {domain.description}
+                          </CardDescription>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div>
+                        <p className="text-sm font-medium mb-2">Compliance Standards:</p>
+                        <div className="flex flex-wrap gap-1">
+                          {domain.compliance.map((standard) => (
+                            <Badge key={standard} variant="secondary" className="text-xs">
+                              {standard}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <p className="text-sm font-medium mb-2">Common Use Cases:</p>
+                        <ul className="text-xs text-muted-foreground space-y-1">
+                          {domain.useCases.map((useCase) => (
+                            <li key={useCase} className="flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3 text-green-500" />
+                              {useCase}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <Button className="w-full mt-4 group">
+                        Start Building
+                        <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             </div>
-          </div>
-        )}
 
-        {/* Always show stats at the bottom */}
-        <StatsOverview />
+            {/* Key Features */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
+              <Card>
+                <CardHeader>
+                  <Zap className="w-8 h-8 text-blue-600" />
+                  <CardTitle>Rapid Development</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground">
+                    Generate production-ready infrastructure and deployment configurations in minutes, not months.
+                  </p>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader>
+                  <Shield className="w-8 h-8 text-green-600" />
+                  <CardTitle>Enterprise Security</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground">
+                    Built-in compliance frameworks, security best practices, and audit trails for enterprise deployment.
+                  </p>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader>
+                  <Users className="w-8 h-8 text-purple-600" />
+                  <CardTitle>Team Collaboration</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground">
+                    Multi-tenant architecture with role-based access control and collaborative development workflows.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="dashboard">
+            <ExecutiveDashboard />
+          </TabsContent>
+
+          <TabsContent value="history">
+            <RequirementHistory />
+          </TabsContent>
+
+          <TabsContent value="analytics">
+            <StatsOverview />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
-};
-
-export default EnhancedIndex;
+}
