@@ -14,15 +14,12 @@ export interface Question {
 
 export interface RequirementSession {
   id: string;
-  tenant_id: string;
+  tenant_id?: string;
   user_id?: string;
   domain: string;
-  subdomain?: string;
-  current_question_index: number;
+  project_id?: string;
+  session_data: any;
   status: string;
-  answers: any;
-  spec_data: any;
-  validation_results: any;
   created_at: string;
   updated_at: string;
 }

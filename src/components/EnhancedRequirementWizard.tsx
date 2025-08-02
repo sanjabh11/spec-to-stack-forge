@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { RequirementWizard } from './RequirementWizard';
+import RequirementWizard from './RequirementWizard';
 import { SpecificationGenerator } from './SpecificationGenerator';
 import { ArtifactGenerationWorkflow } from './ArtifactGenerationWorkflow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -90,7 +90,7 @@ export const EnhancedRequirementWizard: React.FC<EnhancedRequirementWizardProps>
       {/* Current Step Content */}
       {currentWorkflowStep === 0 && (
         <RequirementWizard 
-          selectedDomain={selectedDomain} 
+          domain={selectedDomain} 
           onComplete={handleRequirementsComplete}
         />
       )}

@@ -3047,7 +3047,9 @@ export type Database = {
           project_id: string | null
           session_data: Json
           status: string
+          tenant_id: string | null
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -3056,7 +3058,9 @@ export type Database = {
           project_id?: string | null
           session_data?: Json
           status?: string
+          tenant_id?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -3065,7 +3069,9 @@ export type Database = {
           project_id?: string | null
           session_data?: Json
           status?: string
+          tenant_id?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -4143,6 +4149,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           description: string | null
+          domain: string
           id: string
           is_featured: boolean | null
           name: string
@@ -4156,6 +4163,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          domain: string
           id?: string
           is_featured?: boolean | null
           name: string
@@ -4169,6 +4177,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          domain?: string
           id?: string
           is_featured?: boolean | null
           name?: string
